@@ -84,7 +84,7 @@ export default function Header({ user }) {
                     Profile
                   </Link>
                   <Link
-                    href="/favourites"
+                    href="/lessons/favourites"
                     className="px-4 py-2 transition hover:bg-white/10"
                     onClick={() => setProfileOpen(false)}
                   >

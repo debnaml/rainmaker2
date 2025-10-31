@@ -17,7 +17,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-purplebg">
       <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-primary mb-6">
+        <h1 className="text-2xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
           Rainmaker Login
         </h1>
         <button

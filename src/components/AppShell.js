@@ -16,9 +16,9 @@ export default function AppShell({ children }) {
   if (loading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-white text-textdark">
+    <div className="flex min-h-full flex-col bg-purplebg text-textdark">
       <Header user={user} />
-      <div className="pt-20">{children}</div>
+      <div className="flex-1 pt-20">{children}</div>
     </div>
   );
 }
