@@ -9,12 +9,29 @@ import { useAuth } from '/lib/authContext';
 export default function Header({ user }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [lessonsOpen, setLessonsOpen] = useState(false);
   const router = useRouter();
   const { logout } = useAuth();
 
-  const toggleMobile = () => setMobileOpen((prev) => !prev);
-  const closeMobile = () => setMobileOpen(false);
-  const toggleProfile = () => setProfileOpen((prev) => !prev);
+  const toggleMobile = () => {
+    setMobileOpen((prev) => !prev);
+    setProfileOpen(false);
+    setLessonsOpen(false);
+  };
+  const closeMobile = () => {
+    setMobileOpen(false);
+    setProfileOpen(false);
+    setLessonsOpen(false);
+  };
+  const toggleProfile = () => {
+    setProfileOpen((prev) => !prev);
+    setLessonsOpen(false);
+  };
+  const toggleLessons = () => {
+    setLessonsOpen((prev) => !prev);
+    setProfileOpen(false);
+  };
+  const closeLessons = () => setLessonsOpen(false);
 
   const handleSignOut = () => {
     logout();
@@ -45,9 +62,56 @@ export default function Header({ user }) {
         </Link>
 
         <nav className="hidden items-center gap-10 text-base font-normal md:flex">
-          <Link href="/lessons" className="transition hover:text-mint">
-            Lessons
-          </Link>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={toggleLessons}
+              className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 transition hover:text-mint"
+              aria-haspopup="true"
+              aria-expanded={lessonsOpen}
+            >
+              Lessons
+              <span
+                className={`inline-block h-2.5 w-2.5 -translate-y-[3px] border-b-2 border-r-2 border-current transition-transform ${
+                  lessonsOpen ? 'rotate-[225deg]' : 'rotate-45'
+                }`}
+              />
+            </button>
+            {lessonsOpen ? (
+              <div className="absolute left-0 mt-3 w-56 rounded-lg border border-white/10 bg-[#2A153F] py-3 shadow-lg">
+                <nav className="flex flex-col text-sm">
+                  <Link
+                    href="/lessons"
+                    className="px-4 py-2 transition hover:bg-white/10"
+                    onClick={closeLessons}
+                  >
+                    All Lessons
+                  </Link>
+                  <Link
+                    href="/lessons/core"
+                    className="px-4 py-2 transition hover:bg-white/10"
+                    onClick={closeLessons}
+                  >
+                    Core Lessons
+                  </Link>
+                  <Link
+                    href="/lessons/bitesize"
+                    className="px-4 py-2 transition hover:bg-white/10"
+                    onClick={closeLessons}
+                  >
+                    Bitesize Lessons
+                  </Link>
+                  <Link
+                    href="/lessons/favourites"
+                    className="px-4 py-2 transition hover:bg-white/10"
+                    onClick={closeLessons}
+                  >
+                    Favourite Lessons
+                  </Link>
+                </nav>
+              </div>
+            ) : null}
+          </div>
           <Link href="/stories" className="transition hover:text-mint">
             Stories
           </Link>
@@ -59,7 +123,7 @@ export default function Header({ user }) {
           </span>
           <input
             type="search"
-            placeholder="Search"
+            placeholder="Search for lessons"
             className="w-full rounded-md border border-white/20 bg-white/10 py-2 pl-10 pr-3 text-base font-normal text-white placeholder-white/60 focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/40"
           />
         </div>
@@ -113,12 +177,27 @@ export default function Header({ user }) {
         <button
           type="button"
           onClick={toggleMobile}
-          className="ml-auto inline-flex items-center justify-center rounded-md border border-white/20 p-2 md:hidden"
+          className="ml-auto inline-flex items-center justify-center rounded-md p-2 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/40 md:hidden"
           aria-label="Toggle navigation"
+          aria-expanded={mobileOpen}
         >
-          <span className="block h-0.5 w-6 bg-white" />
-          <span className="mt-1 block h-0.5 w-6 bg-white" />
-          <span className="mt-1 block h-0.5 w-6 bg-white" />
+          <span className="relative block h-4 w-6">
+            <span
+              className={`absolute left-0 top-0 h-0.5 w-full origin-center rounded-full bg-white transition-transform duration-300 ease-in-out ${
+                mobileOpen ? 'translate-y-2 rotate-45' : ''
+              }`}
+            />
+            <span
+              className={`absolute left-0 top-2 h-0.5 w-full origin-center rounded-full bg-white transition-all duration-300 ease-in-out ${
+                mobileOpen ? 'scale-x-0 opacity-0' : 'scale-x-100 opacity-100'
+              }`}
+            />
+            <span
+              className={`absolute left-0 bottom-0 h-0.5 w-full origin-center rounded-full bg-white transition-transform duration-300 ease-in-out ${
+                mobileOpen ? '-translate-y-2 -rotate-45' : ''
+              }`}
+            />
+          </span>
         </button>
       </div>
 
@@ -139,8 +218,25 @@ export default function Header({ user }) {
               <Link href="/lessons" onClick={closeMobile} className="transition hover:text-mint">
                 Lessons
               </Link>
+              <div className="ml-4 flex flex-col gap-2 text-sm text-white/80">
+                <Link href="/lessons" onClick={closeMobile} className="transition hover:text-mint">
+                  All Lessons
+                </Link>
+                <Link href="/lessons/core" onClick={closeMobile} className="transition hover:text-mint">
+                  Core Lessons
+                </Link>
+                <Link href="/lessons/bitesize" onClick={closeMobile} className="transition hover:text-mint">
+                  Bitesize Lessons
+                </Link>
+                <Link href="/lessons/favourites" onClick={closeMobile} className="transition hover:text-mint">
+                  Favourite Lessons
+                </Link>
+              </div>
               <Link href="/stories" onClick={closeMobile} className="transition hover:text-mint">
                 Stories
+              </Link>
+              <Link href="/profile" onClick={closeMobile} className="transition hover:text-mint">
+                Profile
               </Link>
               <button
                 type="button"

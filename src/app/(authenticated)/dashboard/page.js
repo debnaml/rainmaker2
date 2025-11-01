@@ -24,7 +24,7 @@ export default function DashboardPage() {
       <main className="min-h-[calc(100vh-130px)] bg-purplebg">
         <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-0 px-6 py-[30px]">
           <h1 className="text-3xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
-            {`Welcome back, ${firstName}`}
+            {`Welcome back, ${firstName}!`}
           </h1>
           <section className="grid min-h-[120px] w-full grid-cols-1 overflow-hidden rounded-[5px] bg-white md:grid-cols-3">
             {[1, 2, 3].map((item) => (
