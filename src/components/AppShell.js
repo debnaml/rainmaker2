@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '/lib/authContext';
 import Header from './Header';
+import Footer from './Footer';
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth();
@@ -16,9 +17,10 @@ export default function AppShell({ children }) {
   if (loading || !user) return null;
 
   return (
-    <div className="flex min-h-full flex-col bg-purplebg text-textdark">
+    <div className="flex min-h-screen flex-col bg-purplebg text-textdark">
       <Header user={user} />
       <div className="flex-1 pt-20">{children}</div>
+      <Footer />
     </div>
   );
 }
