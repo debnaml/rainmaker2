@@ -13,6 +13,9 @@ export async function GET(request) {
 		const normalizedModuleType = requestedModuleType ? requestedModuleType.toLowerCase() : null;
 		const shouldFilterByModuleType = normalizedModuleType && VALID_MODULE_TYPES.has(normalizedModuleType);
 
+		const favouritesFor = searchParams.get('favouritesFor');
+		const shouldFilterByFavourites = Boolean(favouritesFor);
+
 		const supabase = createSupabaseServiceClient();
 
 		const baseColumns = [
@@ -29,13 +32,20 @@ export async function GET(request) {
 			'created_at',
 		].join(', ');
 
-		const moduleColumns = shouldFilterByModuleType
-			? 'modules!inner(id, title, type, sequence)'
-			: 'modules(id, title, type, sequence)';
+		const selectColumns = [baseColumns];
+		if (shouldFilterByModuleType) {
+			selectColumns.push('modules!inner(id, title, type, sequence)');
+		} else {
+			selectColumns.push('modules(id, title, type, sequence)');
+		}
+
+		if (shouldFilterByFavourites) {
+			selectColumns.push('favourites!inner(user_id)');
+		}
 
 		let query = supabase
 			.from('lessons')
-			.select(`${baseColumns}, ${moduleColumns}`)
+			.select(selectColumns.join(', '))
 			.order('sequence', { ascending: true })
 			.order('title', { ascending: true });
 
@@ -45,6 +55,10 @@ export async function GET(request) {
 
 		if (shouldFilterByModuleType) {
 			query = query.eq('modules.type', normalizedModuleType);
+		}
+
+		if (shouldFilterByFavourites) {
+			query = query.eq('favourites.user_id', favouritesFor);
 		}
 
 		const { data, error } = await query;
@@ -84,7 +98,7 @@ export async function GET(request) {
 		}
 
 		const enrichedLessons = lessons.map((lesson) => {
-			const { modules, ...rest } = lesson;
+			const { modules, favourites, ...rest } = lesson;
 			let moduleRecord = null;
 			if (Array.isArray(modules)) {
 				moduleRecord = modules[0] ?? null;
@@ -92,10 +106,17 @@ export async function GET(request) {
 				moduleRecord = modules;
 			}
 
+			const isFavourite = shouldFilterByFavourites
+				? true
+				: Array.isArray(favourites)
+					? favourites.some((item) => item?.user_id)
+					: Boolean(favourites);
+
 			return {
 				...rest,
 				module: moduleRecord,
 				tags: tagMap.get(lesson.id) ?? [],
+				is_favourite: isFavourite,
 			};
 		});
 

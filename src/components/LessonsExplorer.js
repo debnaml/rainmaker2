@@ -28,11 +28,14 @@ const parseDurationMinutes = (duration) => {
   return Number.isFinite(minutes) ? minutes : null;
 };
 
-function buildLessonsQuery(role, moduleType) {
+function buildLessonsQuery({ role, moduleType, favouritesFor }) {
   const params = new URLSearchParams();
   params.set('role', role ?? ROLE_PARAM_FALLBACK);
   if (moduleType) {
     params.set('moduleType', moduleType);
+  }
+  if (favouritesFor) {
+    params.set('favouritesFor', favouritesFor);
   }
   return params.toString();
 }
@@ -41,9 +44,10 @@ export default function LessonsExplorer({
   pageTitle,
   pageDescription,
   moduleType,
+  showFavouritesOnly = false,
   emptyStateMessage = 'No lessons available yet.',
 }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,6 +57,8 @@ export default function LessonsExplorer({
   const [durationFilter, setDurationFilter] = useState('all');
 
   const roleParam = useMemo(() => user?.role ?? ROLE_PARAM_FALLBACK, [user?.role]);
+  const userId = user?.id ?? null;
+  const favouritesFor = showFavouritesOnly ? userId : null;
 
   const availableFormats = useMemo(() => {
     const unique = new Set();
@@ -118,12 +124,32 @@ export default function LessonsExplorer({
   useEffect(() => {
     let isMounted = true;
 
+    if (authLoading) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (showFavouritesOnly && !favouritesFor) {
+      if (isMounted) {
+        setLessons([]);
+        setLoading(false);
+      }
+      return () => {
+        isMounted = false;
+      };
+    }
+
     async function fetchLessons() {
       try {
         setLoading(true);
         setError(null);
 
-        const query = buildLessonsQuery(roleParam, moduleType);
+        const query = buildLessonsQuery({
+          role: roleParam,
+          moduleType,
+          favouritesFor,
+        });
         const response = await fetch(`/api/lessons?${query}`);
         const payload = await response.json();
 
@@ -148,7 +174,7 @@ export default function LessonsExplorer({
     return () => {
       isMounted = false;
     };
-  }, [roleParam, moduleType]);
+  }, [roleParam, moduleType, favouritesFor, authLoading, showFavouritesOnly]);
 
   return (
     <div className="flex flex-col">
@@ -191,6 +217,7 @@ export default function LessonsExplorer({
                         tags,
                         sequence,
                         module: moduleInfo,
+                        is_favourite: isFavourite,
                       } = lesson;
 
                       const displayTitle = title || 'Untitled lesson';
@@ -231,10 +258,19 @@ export default function LessonsExplorer({
                                 <h2 className="text-xl font-semibold text-primary">{displayTitle}</h2>
                                 <p className="text-sm text-textdark/70">{blurb}</p>
                               </div>
-                              {isEnhancedOnly ? (
-                                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                                  Enhanced only
-                                </span>
+                              {(isEnhancedOnly || isFavourite) ? (
+                                <div className="flex flex-col items-end gap-2">
+                                  {isEnhancedOnly ? (
+                                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                                      Enhanced only
+                                    </span>
+                                  ) : null}
+                                  {isFavourite ? (
+                                    <span className="rounded-full bg-[#FFE8C7] px-3 py-1 text-xs font-medium text-[#7C4A03]">
+                                      Favourite
+                                    </span>
+                                  ) : null}
+                                </div>
                               ) : null}
                             </div>
 
