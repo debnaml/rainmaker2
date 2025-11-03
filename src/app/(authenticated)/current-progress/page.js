@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import SubNav from '~/components/SubNav';
+import { useAuth } from '/lib/authContext';
 
 const SUB_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -8,19 +11,283 @@ const SUB_NAV_ITEMS = [
   { label: 'Leaderboard', href: '/leaderboard' },
 ];
 
+const ROLE_PARAM_FALLBACK = 'normal';
+
+function ProgressDonut({ percent, color = '#237781' }) {
+  const clamped = Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
+  const angle = (clamped / 100) * 360;
+
+  return (
+    <div
+      className="relative flex h-15 w-15 items-center justify-center rounded-full"
+      style={{
+        height: '60px',
+        width: '60px',
+        backgroundImage: `conic-gradient(${color} ${angle}deg, #E6E6E6 ${angle}deg)`
+      }}
+      aria-hidden="true"
+    >
+      <div
+        className="rounded-full bg-white"
+        style={{ height: '44px', width: '44px' }}
+      />
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-primary">
+        {clamped}%
+      </span>
+    </div>
+  );
+}
+
+function LessonStatusBadge({ status }) {
+  const normalized = status ?? 'not_started';
+  if (normalized === 'completed') {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+        ✓
+      </span>
+    );
+  }
+
+  if (normalized === 'in_progress') {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-primary text-xs font-semibold text-primary">
+        •
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#D9D9D9] text-xs font-semibold text-[#D9D9D9]">
+      •
+    </span>
+  );
+}
+
 export default function CurrentProgressPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [coreLessons, setCoreLessons] = useState([]);
+  const [bitesizeLessons, setBitesizeLessons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function loadData() {
+      if (!user) {
+        setCoreLessons([]);
+        setBitesizeLessons([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          role: user.role ?? ROLE_PARAM_FALLBACK,
+          progressFor: user.id,
+        });
+
+        const [coreResponse, bitesizeResponse] = await Promise.all([
+          fetch(`/api/lessons?${params.toString()}&moduleType=core`, { signal: controller.signal }),
+          fetch(`/api/lessons?${params.toString()}&moduleType=bitesize`, { signal: controller.signal }),
+        ]);
+
+        const corePayload = await coreResponse.json();
+        const bitesizePayload = await bitesizeResponse.json();
+
+        if (!coreResponse.ok) {
+          throw new Error(corePayload.error ?? 'Unable to load core lessons.');
+        }
+
+        if (!bitesizeResponse.ok) {
+          throw new Error(bitesizePayload.error ?? 'Unable to load bitesize lessons.');
+        }
+
+        if (!isMounted) return;
+
+        setCoreLessons(Array.isArray(corePayload.lessons) ? corePayload.lessons : []);
+        setBitesizeLessons(Array.isArray(bitesizePayload.lessons) ? bitesizePayload.lessons : []);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Failed to load progress overview', err);
+        if (isMounted) setError(err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    if (!authLoading) {
+      loadData();
+    }
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [authLoading, user]);
+
+  const groupedCore = useMemo(() => {
+    const modules = new Map();
+
+    coreLessons.forEach((lesson) => {
+      const moduleId = lesson.module?.id ?? 'unassigned';
+      const moduleTitle = lesson.module?.title ?? 'Independent lessons';
+      const moduleSequence = lesson.module?.sequence ?? 9999;
+
+      if (!modules.has(moduleId)) {
+        modules.set(moduleId, { title: moduleTitle, sequence: moduleSequence, lessons: [] });
+      }
+
+      modules.get(moduleId).lessons.push(lesson);
+    });
+
+    return Array.from(modules.values())
+      .sort((a, b) => a.sequence - b.sequence || a.title.localeCompare(b.title))
+      .map((module) => ({
+        ...module,
+        lessons: module.lessons.sort((a, b) => {
+          const seqA = a.sequence ?? 9999;
+          const seqB = b.sequence ?? 9999;
+          if (seqA !== seqB) return seqA - seqB;
+          return (a.title ?? '').localeCompare(b.title ?? '');
+        }),
+      }));
+  }, [coreLessons]);
+
+  const bitesizeSorted = useMemo(() => {
+    return [...bitesizeLessons].sort((a, b) => {
+      const seqA = a.sequence ?? 9999;
+      const seqB = b.sequence ?? 9999;
+      if (seqA !== seqB) return seqA - seqB;
+      return (a.title ?? '').localeCompare(b.title ?? '');
+    });
+  }, [bitesizeLessons]);
+
+  const coreCompletion = useMemo(() => {
+    if (!coreLessons.length) return 0;
+    const completed = coreLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
+    return Math.round((completed / coreLessons.length) * 100);
+  }, [coreLessons]);
+
+  const bitesizeCompletion = useMemo(() => {
+    if (!bitesizeLessons.length) return 0;
+    const completed = bitesizeLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
+    return Math.round((completed / bitesizeLessons.length) * 100);
+  }, [bitesizeLessons]);
+
+  const storiesCompletion = 0;
+
+  const renderLessonItem = (lesson) => {
+    const status = lesson.progress?.status ?? 'not_started';
+    return (
+      <Link
+        key={lesson.id ?? lesson.title}
+        href={lesson.id ? `/lessons/${lesson.id}` : lesson.url ?? '#'}
+  className="flex items-center justify-between gap-2 py-2 text-sm text-textdark"
+      >
+        <div className="flex flex-1 items-center gap-3">
+          <LessonStatusBadge status={status} />
+          <div className="flex flex-col">
+            <span className="font-medium text-[#237781]">{lesson.title ?? 'Untitled lesson'}</span>
+          </div>
+        </div>
+      </Link>
+    );
+  };
+
   return (
     <div className="flex flex-col">
       <SubNav items={SUB_NAV_ITEMS} />
-      <main className="min-h-[calc(100vh-130px)] bg-purplebg">
-        <div className="mx-auto flex h-full w-full max-w-6xl flex-col items-start justify-center gap-6 px-6 py-[30px]">
-          <h1 className="text-3xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
-            Current Progress
-          </h1>
-          <p className="max-w-2xl text-base text-textdark/80">
-            Progress tracking overview placeholder. Replace this with data visualisations showing lesson
-            completion, streaks, and achievements.
-          </p>
+      <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
+        <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-[30px]">
+          <header className="space-y-2">
+            <h1 className="pt-[45px] text-left text-3xl font-semibold text-primary">Current Progress</h1>
+            <p className="text-base text-textdark/80">
+              Track how you are moving through the core curriculum, quick bitesize refreshers, and upcoming stories.
+            </p>
+          </header>
+
+          {authLoading || loading ? (
+            <p className="text-sm text-textdark/70">Loading your progress…</p>
+          ) : !user ? (
+            <p className="text-sm text-textdark/70">Sign in to view your progress.</p>
+          ) : error ? (
+            <p className="text-sm text-red-600">{error}</p>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-primary">Core</h2>
+                    <p className="text-xs uppercase tracking-wide text-textdark/50">
+                      {coreLessons.length} lessons
+                    </p>
+                  </div>
+                  <ProgressDonut percent={coreCompletion} color="#331D4C" />
+                </div>
+
+                <div className="flex flex-col gap-5">
+                  {groupedCore.length === 0 ? (
+                    <p className="text-sm text-textdark/60">No core lessons available yet.</p>
+                  ) : (
+                    groupedCore.map((module) => (
+                      <div key={module.title} className="space-y-1.5">
+                        <h3 className="py-[15px] text-base font-semibold text-primary">
+                          {module.title}
+                        </h3>
+                        <div className="space-y-1.5">
+                          {module.lessons.map((lesson) => renderLessonItem(lesson))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="flex flex-col gap-4 rounded-md bg-[#cbeef3]/30 p-6 transition-shadow hover:shadow-md">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-primary">Bitesize</h2>
+                    <p className="text-xs uppercase tracking-wide text-textdark/50">
+                      {bitesizeLessons.length} lessons
+                    </p>
+                  </div>
+                  <ProgressDonut percent={bitesizeCompletion} />
+                </div>
+
+                <div className="space-y-1.5">
+                  {bitesizeSorted.length === 0 ? (
+                    <p className="text-sm text-textdark/60">No bitesize lessons available yet.</p>
+                  ) : (
+                    bitesizeSorted.map((lesson) => renderLessonItem(lesson))
+                  )}
+                </div>
+              </section>
+
+              <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-primary">Stories</h2>
+                    <p className="text-xs uppercase tracking-wide text-textdark/50">Coming soon</p>
+                  </div>
+                  <ProgressDonut percent={storiesCompletion} />
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-md border border-dashed border-primary/40 bg-white/60 p-4 text-sm text-textdark/70">
+                  <p className="font-medium text-primary">Stories tracker arriving soon</p>
+                  <p>
+                    We&apos;re building a new home for the stories content. Once the library is ready you&apos;ll see
+                    progress across chapters and narrative arcs here.
+                  </p>
+                  <p className="text-xs uppercase tracking-wide text-textdark/50">Stay tuned</p>
+                </div>
+              </section>
+            </div>
+          )}
         </div>
       </main>
     </div>

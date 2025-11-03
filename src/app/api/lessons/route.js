@@ -15,6 +15,8 @@ export async function GET(request) {
 
 		const favouritesFor = searchParams.get('favouritesFor');
 		const shouldFilterByFavourites = Boolean(favouritesFor);
+		const progressFor = searchParams.get('progressFor');
+		const shouldIncludeProgress = Boolean(progressFor);
 
 		const supabase = createSupabaseServiceClient();
 
@@ -71,6 +73,7 @@ export async function GET(request) {
 		const lessonIds = lessons.map((lesson) => lesson.id).filter(Boolean);
 
 		let tagMap = new Map();
+		let progressMap = new Map();
 
 		if (lessonIds.length > 0) {
 			const { data: tagRows, error: tagError } = await supabase
@@ -95,6 +98,32 @@ export async function GET(request) {
 					return acc;
 				}, new Map());
 			}
+
+			if (shouldIncludeProgress) {
+				const { data: progressRows, error: progressError } = await supabase
+					.from('lesson_progress')
+					.select('lesson_id, status, progress_percent, completed_at, updated_at, started_at')
+					.eq('user_id', progressFor)
+					.in('lesson_id', lessonIds);
+
+				if (progressError) {
+					throw progressError;
+				}
+
+				if (Array.isArray(progressRows)) {
+					progressMap = progressRows.reduce((acc, row) => {
+						if (!row?.lesson_id) return acc;
+						acc.set(row.lesson_id, {
+							status: row.status,
+							progressPercent: row.progress_percent,
+							completedAt: row.completed_at,
+							updatedAt: row.updated_at,
+							startedAt: row.started_at,
+						});
+						return acc;
+					}, new Map());
+				}
+			}
 		}
 
 		const enrichedLessons = lessons.map((lesson) => {
@@ -117,6 +146,7 @@ export async function GET(request) {
 				module: moduleRecord,
 				tags: tagMap.get(lesson.id) ?? [],
 				is_favourite: isFavourite,
+				progress: progressMap.get(lesson.id) ?? null,
 			};
 		});
 
