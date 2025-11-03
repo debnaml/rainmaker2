@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '/lib/authContext';
 import SubNav from '~/components/SubNav';
@@ -296,7 +297,15 @@ export default function LessonsExplorer({
                               <span className="text-xs text-textdark/50">Created {createdLabel}</span>
                             </div>
 
-                            {url ? (
+                            {id ? (
+                              <Link
+                                href={`/lessons/${id}`}
+                                className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-action"
+                              >
+                                View lesson
+                                <span aria-hidden="true">→</span>
+                              </Link>
+                            ) : url ? (
                               <a
                                 href={url}
                                 target="_blank"
@@ -304,7 +313,7 @@ export default function LessonsExplorer({
                                 className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-action"
                               >
                                 View lesson
-                                <span aria-hidden="true">→</span>
+                                <span aria-hidden="true">↗</span>
                               </a>
                             ) : null}
                           </div>
