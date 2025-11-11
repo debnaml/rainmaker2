@@ -10,28 +10,40 @@ export default function Header({ user }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [lessonsOpen, setLessonsOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const router = useRouter();
   const { logout } = useAuth();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   const toggleMobile = () => {
     setMobileOpen((prev) => !prev);
     setProfileOpen(false);
     setLessonsOpen(false);
+    setAdminOpen(false);
   };
   const closeMobile = () => {
     setMobileOpen(false);
     setProfileOpen(false);
     setLessonsOpen(false);
+    setAdminOpen(false);
   };
   const toggleProfile = () => {
     setProfileOpen((prev) => !prev);
     setLessonsOpen(false);
+    setAdminOpen(false);
   };
   const toggleLessons = () => {
     setLessonsOpen((prev) => !prev);
     setProfileOpen(false);
+    setAdminOpen(false);
   };
   const closeLessons = () => setLessonsOpen(false);
+  const toggleAdmin = () => {
+    setAdminOpen((prev) => !prev);
+    setLessonsOpen(false);
+    setProfileOpen(false);
+  };
+  const closeAdmin = () => setAdminOpen(false);
 
   const handleSignOut = () => {
     logout();
@@ -115,6 +127,58 @@ export default function Header({ user }) {
           <Link href="/stories" className="transition hover:text-mint">
             Stories
           </Link>
+          {isAdmin ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={toggleAdmin}
+                className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 transition hover:text-mint"
+                aria-haspopup="true"
+                aria-expanded={adminOpen}
+              >
+                Admin
+                <span
+                  className={`inline-block h-2.5 w-2.5 -translate-y-[3px] border-b-2 border-r-2 border-current transition-transform ${
+                    adminOpen ? 'rotate-[225deg]' : 'rotate-45'
+                  }`}
+                />
+              </button>
+              {adminOpen ? (
+                <div className="absolute left-0 mt-3 w-56 rounded-lg border border-white/10 bg-[#2A153F] py-3 shadow-lg">
+                  <nav className="flex flex-col text-sm">
+                    <Link
+                      href="/admin/users"
+                      className="px-4 py-2 transition hover:bg-white/10"
+                      onClick={closeAdmin}
+                    >
+                      Users
+                    </Link>
+                    <Link
+                      href="/admin/peer-groups"
+                      className="px-4 py-2 transition hover:bg-white/10"
+                      onClick={closeAdmin}
+                    >
+                      Peer Groups
+                    </Link>
+                    <Link
+                      href="/admin/content"
+                      className="px-4 py-2 transition hover:bg-white/10"
+                      onClick={closeAdmin}
+                    >
+                      Content
+                    </Link>
+                    <Link
+                      href="/admin/reports"
+                      className="px-4 py-2 transition hover:bg-white/10"
+                      onClick={closeAdmin}
+                    >
+                      Reports
+                    </Link>
+                  </nav>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </nav>
 
         <div className="relative hidden flex-1 items-center max-w-xs sm:max-w-md md:flex">
@@ -235,6 +299,27 @@ export default function Header({ user }) {
               <Link href="/stories" onClick={closeMobile} className="transition hover:text-mint">
                 Stories
               </Link>
+              {isAdmin ? (
+                <>
+                  <Link href="/admin/users" onClick={closeMobile} className="transition hover:text-mint">
+                    Admin
+                  </Link>
+                  <div className="ml-4 flex flex-col gap-2 text-sm text-white/80">
+                    <Link href="/admin/users" onClick={closeMobile} className="transition hover:text-mint">
+                      Users
+                    </Link>
+                    <Link href="/admin/peer-groups" onClick={closeMobile} className="transition hover:text-mint">
+                      Peer Groups
+                    </Link>
+                    <Link href="/admin/content" onClick={closeMobile} className="transition hover:text-mint">
+                      Content
+                    </Link>
+                    <Link href="/admin/reports" onClick={closeMobile} className="transition hover:text-mint">
+                      Reports
+                    </Link>
+                  </div>
+                </>
+              ) : null}
               <Link href="/profile" onClick={closeMobile} className="transition hover:text-mint">
                 Profile
               </Link>
