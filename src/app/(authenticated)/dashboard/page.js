@@ -1,7 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useAuth } from '/lib/authContext';
-import { useRouter } from 'next/navigation';
+import ContinueLearningCard from '~/components/dashboard/ContinueLearningCard';
+import EventsListCard from '~/components/dashboard/EventsListCard';
+import LiveEventsCard from '~/components/dashboard/LiveEventsCard';
+import NewestLessonsCard from '~/components/dashboard/NewestLessonsCard';
+import OverallProgressCard from '~/components/dashboard/OverallProgressCard';
+import PeerLeaderboardCard from '~/components/dashboard/PeerLeaderboardCard';
 import SubNav from '~/components/SubNav';
 
 const SUB_NAV_ITEMS = [
@@ -10,13 +16,201 @@ const SUB_NAV_ITEMS = [
   { label: 'Leaderboard', href: '/leaderboard' },
 ];
 
+const ROLE_PARAM_FALLBACK = 'normal';
+
+function normalizeModuleType(value) {
+  if (typeof value !== 'string') return null;
+  return value.toLowerCase();
+}
+
+function sortLessons(lessons) {
+  return [...lessons].sort((a, b) => {
+    const moduleSeqA = a?.module?.sequence ?? 9999;
+    const moduleSeqB = b?.module?.sequence ?? 9999;
+    if (moduleSeqA !== moduleSeqB) return moduleSeqA - moduleSeqB;
+
+    const lessonSeqA = a?.sequence ?? 9999;
+    const lessonSeqB = b?.sequence ?? 9999;
+    if (lessonSeqA !== lessonSeqB) return lessonSeqA - lessonSeqB;
+
+    return (a?.title ?? '').localeCompare(b?.title ?? '');
+  });
+}
+
+function isLessonCompleted(lesson) {
+  const status = lesson?.progress?.status;
+  if (status === 'completed') return true;
+  const percent = Number(lesson?.progress?.progressPercent);
+  return Number.isFinite(percent) && percent >= 100;
+}
+
+function isLessonInProgress(lesson) {
+  const status = lesson?.progress?.status;
+  if (status === 'in_progress') return true;
+  const percent = Number(lesson?.progress?.progressPercent);
+  return Number.isFinite(percent) && percent > 0 && percent < 100;
+}
+
+function selectNextLesson(allLessons, desiredType) {
+  const filtered = allLessons.filter((lesson) => {
+    const moduleType = normalizeModuleType(lesson?.module?.type);
+    if (!desiredType) return true;
+    if (moduleType) return moduleType === desiredType;
+    if (desiredType === 'bitesize') {
+      const format = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
+      return format.includes('bite');
+    }
+    return false;
+  });
+
+  if (!filtered.length) return null;
+
+  const sorted = sortLessons(filtered);
+  const active = sorted.find((lesson) => isLessonInProgress(lesson) && !isLessonCompleted(lesson));
+  if (active) return active;
+
+  const pending = sorted.find((lesson) => !isLessonCompleted(lesson));
+  return pending ?? null;
+}
+
+function extractLessonTimestamp(lesson) {
+  const rawDate =
+    lesson?.created_at ??
+    lesson?.createdAt ??
+    lesson?.published_at ??
+    lesson?.publishedAt ??
+    lesson?.updated_at ??
+    lesson?.updatedAt ??
+    null;
+
+  if (!rawDate) return null;
+  const timestamp = new Date(rawDate).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function sortByNewestLessons(lessons) {
+  return [...lessons].sort((a, b) => {
+    const timeA = extractLessonTimestamp(a);
+    const timeB = extractLessonTimestamp(b);
+
+    const hasTimeA = timeA !== null;
+    const hasTimeB = timeB !== null;
+
+    if (hasTimeA && hasTimeB) return timeB - timeA;
+    if (hasTimeA) return -1;
+    if (hasTimeB) return 1;
+    return 0;
+  });
+}
+
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
+  const { user } = useAuth();
+  const [overallProgress, setOverallProgress] = useState(null);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [liveEventsCompleted, setLiveEventsCompleted] = useState(0);
+  const [liveEventsTotal, setLiveEventsTotal] = useState(0);
+  const [nextLesson, setNextLesson] = useState(null);
+  const [recentLessons, setRecentLessons] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function loadOverallProgress() {
+      if (!user?.id) return;
+      try {
+        setProgressLoading(true);
+        const params = new URLSearchParams({
+          role: user.role ?? ROLE_PARAM_FALLBACK,
+          progressFor: user.id,
+        });
+        const response = await fetch(`/api/lessons?${params.toString()}`, { signal: controller.signal });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error ?? 'Unable to load overall progress.');
+        }
+
+        if (!isMounted) return;
+
+        const lessons = Array.isArray(payload.lessons) ? payload.lessons : [];
+        if (!lessons.length) {
+          setOverallProgress(0);
+          setLiveEventsCompleted(0);
+          setLiveEventsTotal(0);
+          setNextLesson(null);
+          setRecentLessons([]);
+          return;
+        }
+
+        const totalPercent = lessons.reduce((acc, lesson) => {
+          const progressPercent = Number(lesson?.progress?.progressPercent);
+          if (Number.isFinite(progressPercent)) {
+            return acc + progressPercent;
+          }
+          if (lesson?.progress?.status === 'completed') {
+            return acc + 100;
+          }
+          return acc;
+        }, 0);
+
+        const average = Math.round(totalPercent / lessons.length);
+        setOverallProgress(Number.isFinite(average) ? Math.max(0, Math.min(100, average)) : 0);
+
+        const liveLessons = lessons.filter((lesson) => {
+          const format = lesson?.format ? String(lesson.format).toLowerCase() : '';
+          return format.includes('live');
+        });
+
+        const liveTotal = liveLessons.length;
+        const liveCompletedCount = liveLessons.filter((lesson) => {
+          const status = lesson?.progress?.status;
+          if (status === 'completed') return true;
+          const progressPercent = Number(lesson?.progress?.progressPercent);
+          return Number.isFinite(progressPercent) && progressPercent >= 100;
+        }).length;
+
+        setLiveEventsTotal(liveTotal);
+        setLiveEventsCompleted(liveCompletedCount);
+
+        const nextCoreLesson = selectNextLesson(lessons, 'core');
+        if (nextCoreLesson) {
+          setNextLesson(nextCoreLesson);
+        } else {
+          const nextBitesizeLesson = selectNextLesson(lessons, 'bitesize');
+          setNextLesson(nextBitesizeLesson ?? null);
+        }
+
+        const newest = sortByNewestLessons(lessons).slice(0, 4);
+        setRecentLessons(newest);
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.error('Failed to load overall progress', error);
+        if (isMounted) {
+          setOverallProgress(0);
+          setLiveEventsCompleted(0);
+          setLiveEventsTotal(0);
+          setNextLesson(null);
+          setRecentLessons([]);
+        }
+      } finally {
+        if (isMounted) setProgressLoading(false);
+      }
+    }
+
+    loadOverallProgress();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [user]);
 
   if (!user) return null;
 
   const firstName = user?.name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
+  const inPeerGroup = Boolean(user?.peerGroupId);
 
   return (
     <div className="flex flex-col">
@@ -27,76 +221,38 @@ export default function DashboardPage() {
             {`Welcome back, ${firstName}!`}
           </h1>
           <section className="grid min-h-[120px] w-full grid-cols-1 overflow-hidden rounded-[5px] bg-white md:grid-cols-3">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="relative flex flex-col justify-center gap-2 border-b border-[#D9D9D9] p-6 text-left md:border-b-0 md:[&:not(:last-child)]:before:absolute md:[&:not(:last-child)]:before:right-0 md:[&:not(:last-child)]:before:top-5 md:[&:not(:last-child)]:before:bottom-5 md:[&:not(:last-child)]:before:w-px md:[&:not(:last-child)]:before:bg-[#D9D9D9] md:[&:not(:last-child)]:before:content-[''] last:border-none"
-              >
-                <p className="text-sm font-medium text-textdark/70">Stat placeholder {item}</p>
-                <p className="text-2xl font-semibold text-primary">123</p>
-                <p className="text-xs uppercase tracking-wide text-textdark/50">Updated moments ago</p>
-              </div>
-            ))}
+            <OverallProgressCard
+              percent={overallProgress ?? 0}
+              isLoading={progressLoading}
+              linkHref="#"
+            />
+            <PeerLeaderboardCard
+              position={null}
+              isLoading={false}
+              disabled={!inPeerGroup}
+              linkHref="/leaderboard"
+            />
+            <LiveEventsCard
+              completed={liveEventsCompleted}
+              total={liveEventsTotal}
+              isLoading={progressLoading}
+              linkHref="#"
+            />
           </section>
           <section className="mt-8 grid w-full grid-cols-1 gap-6 md:grid-cols-3">
-            <article className="flex flex-col gap-6 rounded-[5px] bg-white p-6 md:col-span-2">
-              <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="flex max-w-2xl flex-col gap-2">
-                  <span className="text-xs uppercase tracking-wide text-textdark/60">Popular Lesson</span>
-                  <h2 className="text-2xl font-semibold text-primary">Consultative Rainmaking Basics</h2>
-                  <p className="text-sm text-textdark/70">
-                    Dive back into the module that helps you build lasting client relationships with practical listening
-                    frameworks and actionable prep guides.
-                  </p>
-                </div>
-                <button className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-action">
-                  Resume lesson
-                </button>
-              </header>
-              <dl className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-wide text-textdark/50">Completion</dt>
-                  <dd className="text-lg font-semibold text-textdark">68%</dd>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-wide text-textdark/50">Last activity</dt>
-                  <dd className="text-lg font-semibold text-textdark">3 days ago</dd>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-wide text-textdark/50">Coach</dt>
-                  <dd className="text-lg font-semibold text-textdark">Jordan Blake</dd>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <dt className="text-xs uppercase tracking-wide text-textdark/50">Estimated time</dt>
-                  <dd className="text-lg font-semibold text-textdark">18 minutes</dd>
-                </div>
-              </dl>
-              <div className="flex flex-wrap gap-2 text-sm text-primary">
-                <span className="rounded-full border border-primary px-3 py-1 text-xs uppercase tracking-wide text-primary/90">Discovery</span>
-                <span className="rounded-full border border-primary px-3 py-1 text-xs uppercase tracking-wide text-primary/90">Listening</span>
-                <span className="rounded-full border border-primary px-3 py-1 text-xs uppercase tracking-wide text-primary/90">Prep</span>
-              </div>
-            </article>
-            <article className="flex flex-col gap-4 rounded-[5px] bg-white p-6">
-              <span className="text-xs uppercase tracking-wide text-textdark/60">Story Spotlight</span>
-              <h2 className="text-xl font-semibold text-primary">Negotiating the Partnership</h2>
-              <p className="text-sm text-textdark/70">
-                Pick up the interactive story where you left off and practice converting a warm lead into a new
-                engagement.
-              </p>
-              <div className="mt-auto flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-wide text-textdark/50">Progress</span>
-                  <span className="text-sm font-medium text-primary">45%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[#D9D9D9]/60">
-                  <div className="h-full w-[45%] rounded-full bg-primary" />
-                </div>
-                <button className="inline-flex h-10 items-center justify-center rounded-full border border-primary px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/10">
-                  Continue story
-                </button>
-              </div>
-            </article>
+            <div className="flex flex-col gap-4 md:col-span-2">
+              <h2 className="text-xl font-semibold text-primary">Continue Learning</h2>
+              <ContinueLearningCard lesson={nextLesson} isLoading={progressLoading} />
+            </div>
+            <div className="flex flex-col gap-4 md:h-full">
+              <h2 className="text-xl font-semibold text-primary">Events</h2>
+              {/* TODO: Replace stub props with real event data when API is connected */}
+              <EventsListCard events={events} isLoading={eventsLoading} />
+            </div>
+          </section>
+          <section className="mt-8 flex flex-col gap-4">
+            <h2 className="text-xl font-semibold text-primary">Newest Lessons</h2>
+            <NewestLessonsCard lessons={recentLessons} isLoading={progressLoading} />
           </section>
           
         </div>

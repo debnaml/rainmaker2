@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import ProgressDonut from '~/components/ProgressDonut';
 import SubNav from '~/components/SubNav';
 import { useAuth } from '/lib/authContext';
 
@@ -12,31 +13,6 @@ const SUB_NAV_ITEMS = [
 ];
 
 const ROLE_PARAM_FALLBACK = 'normal';
-
-function ProgressDonut({ percent, color = '#237781' }) {
-  const clamped = Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
-  const angle = (clamped / 100) * 360;
-
-  return (
-    <div
-      className="relative flex h-15 w-15 items-center justify-center rounded-full"
-      style={{
-        height: '60px',
-        width: '60px',
-        backgroundImage: `conic-gradient(${color} ${angle}deg, #E6E6E6 ${angle}deg)`
-      }}
-      aria-hidden="true"
-    >
-      <div
-        className="rounded-full bg-white"
-        style={{ height: '44px', width: '44px' }}
-      />
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-primary">
-        {clamped}%
-      </span>
-    </div>
-  );
-}
 
 function LessonStatusBadge({ status }) {
   const normalized = status ?? 'not_started';

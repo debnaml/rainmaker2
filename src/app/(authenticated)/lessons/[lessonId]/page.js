@@ -230,11 +230,15 @@ export default function LessonDetailPage() {
   const [isFavourite, setIsFavourite] = useState(false);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [progressBusy, setProgressBusy] = useState(false);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   useEffect(() => {
     if (!lessonId) return;
 
     const controller = new AbortController();
+    let isActive = true;
+
+    setHasAttemptedLoad(false);
 
     async function loadLesson() {
       try {
@@ -255,22 +259,31 @@ export default function LessonDetailPage() {
           throw new Error(payload.error ?? 'Unable to load lesson.');
         }
 
-        setLesson(payload.lesson);
+        if (!isActive) return;
+
+        setLesson(payload.lesson ?? null);
         setProgress(payload.progress ?? { ...DEFAULT_PROGRESS });
         setModuleLessons(payload.moduleLessons ?? []);
         setIsFavourite(Boolean(payload.favourite));
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Failed to load lesson', err);
+        if (!isActive) return;
         setError(err.message);
+        setLesson(null);
       } finally {
+        if (!isActive) return;
         setLoading(false);
+        setHasAttemptedLoad(true);
       }
     }
 
     loadLesson();
 
-    return () => controller.abort();
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, [lessonId, user?.id, user?.role]);
 
   const progressPercent = useMemo(() => {
@@ -367,7 +380,7 @@ export default function LessonDetailPage() {
     );
   }
 
-  if (authLoading || loading) {
+  if (authLoading || loading || !hasAttemptedLoad) {
     return (
       <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
         <div className="mx-auto w-full max-w-6xl px-6 py-[30px]">
