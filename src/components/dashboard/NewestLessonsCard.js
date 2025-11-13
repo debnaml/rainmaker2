@@ -27,6 +27,36 @@ function getLessonSummary(lesson) {
   return candidates.find((value) => typeof value === 'string' && value.trim().length > 0) ?? null;
 }
 
+function getPresenters(lesson) {
+  const rawValues = [
+    lesson?.presenters,
+    lesson?.presenter,
+    lesson?.facilitators,
+    lesson?.facilitator,
+    lesson?.instructors,
+    lesson?.instructor,
+  ];
+
+  const collected = rawValues
+    .flatMap((value) => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      return [value];
+    })
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === 'string') return item;
+      if (typeof item.name === 'string') return item.name;
+      if (typeof item.fullName === 'string') return item.fullName;
+      return null;
+    })
+    .filter((name) => typeof name === 'string' && name.trim().length > 0)
+    .map((name) => name.trim());
+
+  const unique = [...new Set(collected)];
+  return unique;
+}
+
 export default function NewestLessonsCard({ lessons = [], isLoading = false }) {
   if (isLoading) {
     return (
@@ -67,6 +97,7 @@ export default function NewestLessonsCard({ lessons = [], isLoading = false }) {
         const imageUrl = lesson?.image_url ?? lesson?.imageUrl ?? null;
         const summary = getLessonSummary(lesson);
         const typeDisplay = `${typeLabel}${typeLabel.toLowerCase().includes('lesson') ? '' : ' Lesson'}`;
+        const presenters = getPresenters(lesson);
 
         return (
           <Link
@@ -93,6 +124,11 @@ export default function NewestLessonsCard({ lessons = [], isLoading = false }) {
               </span>
               {summary ? (
                 <p className="line-clamp-2 text-sm leading-relaxed text-textdark/70">{summary}</p>
+              ) : null}
+              {presenters.length ? (
+                <span className="text-sm text-textdark/70">
+                  Presented by {presenters.length > 1 ? presenters.join(', ') : presenters[0]}
+                </span>
               ) : null}
               <div className="mt-auto flex items-center gap-2 text-sm font-medium text-textdark/70">
                 <ClockIcon className="h-4 w-4 text-action" />

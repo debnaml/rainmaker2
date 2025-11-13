@@ -17,8 +17,15 @@ function formatEventDate(value) {
   }
 }
 
-export default function EventsListCard({ events = [], isLoading = false }) {
+export default function EventsListCard({
+  events = [],
+  isLoading = false,
+  onBookSession = null,
+  bookSessionHref = '',
+}) {
   const showPlaceholder = !isLoading && (!Array.isArray(events) || events.length === 0);
+  const canHandleBooking = typeof onBookSession === 'function';
+  const hasBookingHref = typeof bookSessionHref === 'string' && bookSessionHref.trim().length > 0;
 
   return (
     <aside className="flex h-full min-h-[260px] flex-col gap-4 rounded-[5px] bg-white p-6 shadow-sm">
@@ -35,9 +42,27 @@ export default function EventsListCard({ events = [], isLoading = false }) {
           ))}
         </div>
       ) : showPlaceholder ? (
-        <div className="flex flex-1 flex-col items-start justify-center gap-2 text-sm text-textdark/70">
-          <span className="text-base font-semibold text-primary">No events booked</span>
-          <p>Once live sessions are scheduled, they will appear here so you can plan ahead.</p>
+        <div className="flex flex-1 flex-col items-start justify-center gap-4 text-sm text-textdark/70">
+          <div className="flex flex-col gap-2">
+            <span className="text-base font-semibold text-primary">No events booked</span>
+            <p>Once live sessions are scheduled, they will appear here so you can plan ahead.</p>
+          </div>
+          {canHandleBooking ? (
+            <button
+              type="button"
+              onClick={onBookSession}
+              className="inline-flex items-center justify-center rounded-full bg-action px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-action/50"
+            >
+              Book a session
+            </button>
+          ) : hasBookingHref ? (
+            <a
+              href={bookSessionHref}
+              className="inline-flex items-center justify-center rounded-full bg-action px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-action/50"
+            >
+              Book a session
+            </a>
+          ) : null}
         </div>
       ) : (
         <ul className="flex flex-1 flex-col gap-4">

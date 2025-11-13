@@ -31,6 +31,36 @@ function getLessonType(lesson) {
   return typeof format === 'string' ? format : 'Lesson';
 }
 
+function getPresenters(lesson) {
+  const rawValues = [
+    lesson?.presenters,
+    lesson?.presenter,
+    lesson?.facilitators,
+    lesson?.facilitator,
+    lesson?.instructors,
+    lesson?.instructor,
+  ];
+
+  const collected = rawValues
+    .flatMap((value) => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      return [value];
+    })
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === 'string') return item;
+      if (typeof item.name === 'string') return item.name;
+      if (typeof item.fullName === 'string') return item.fullName;
+      return null;
+    })
+    .filter((name) => typeof name === 'string' && name.trim().length > 0)
+    .map((name) => name.trim());
+
+  const unique = [...new Set(collected)];
+  return unique;
+}
+
 export default function ContinueLearningCard({ lesson, isLoading = false }) {
   if (isLoading) {
     return (
@@ -72,6 +102,7 @@ export default function ContinueLearningCard({ lesson, isLoading = false }) {
   const rawDurationLabel = lesson.duration;
   const durationLabel = typeof rawDurationLabel === 'string' && rawDurationLabel.trim().length > 0 ? rawDurationLabel : null;
   const imageUrl = lesson.image_url ?? lesson.imageUrl ?? null;
+  const presenters = getPresenters(lesson);
   const rawCommentTotal =
     lesson.comment_count ?? lesson.comments_count ?? lesson.commentCount ?? lesson.comments ?? 0;
   const comments = Number.isFinite(Number(rawCommentTotal)) ? Number(rawCommentTotal) : 0;
@@ -112,6 +143,11 @@ export default function ContinueLearningCard({ lesson, isLoading = false }) {
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
+          </div>
+        ) : null}
+        {presenters.length ? (
+          <div className="text-sm text-textdark/70">
+            Presented by {presenters.length > 1 ? presenters.join(', ') : presenters[0]}
           </div>
         ) : null}
         <div className="mt-auto flex flex-col gap-3 text-sm text-textdark/70">

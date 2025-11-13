@@ -1,0 +1,336 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '/lib/authContext';
+import SubNav from '~/components/SubNav';
+
+const CONTENT_SECTION_ITEMS = [
+  { key: 'lessons', label: 'Lessons', href: '/admin/content?view=lessons' },
+  { key: 'modules', label: 'Modules', href: '/admin/content?view=modules' },
+  { key: 'presenters', label: 'Presenters', href: '/admin/content?view=presenters' },
+  { key: 'tags', label: 'Tags', href: '/admin/content?view=tags' },
+  { key: 'formats', label: 'Formats', href: '/admin/content?view=formats' },
+];
+
+function sanitizeSelection(values) {
+  return Array.isArray(values) ? values.filter((value) => typeof value === 'string' && value.length > 0) : [];
+}
+
+export default function NewLessonPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+  const [modules, setModules] = useState([]);
+  const [presenters, setPresenters] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsError, setOptionsError] = useState(null);
+
+  const [title, setTitle] = useState('');
+  const [moduleId, setModuleId] = useState('');
+  const [format, setFormat] = useState('');
+  const [duration, setDuration] = useState('');
+  const [externalUrl, setExternalUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [isEnhancedOnly, setIsEnhancedOnly] = useState(false);
+  const [selectedPresenterIds, setSelectedPresenterIds] = useState([]);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      router.replace('/dashboard');
+    }
+  }, [loading, isAdmin, router]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAdmin) return;
+
+    let isMounted = true;
+    setOptionsLoading(true);
+    setOptionsError(null);
+
+    async function fetchOptions() {
+      try {
+        const [modulesResponse, presentersResponse] = await Promise.all([
+          fetch('/api/admin/modules'),
+          fetch('/api/admin/presenters'),
+        ]);
+
+        const [modulesPayload, presentersPayload] = await Promise.all([
+          modulesResponse.json(),
+          presentersResponse.json(),
+        ]);
+
+        if (!modulesResponse.ok) {
+          throw new Error(modulesPayload.error ?? 'Unable to load modules.');
+        }
+
+        if (!presentersResponse.ok) {
+          throw new Error(presentersPayload.error ?? 'Unable to load presenters.');
+        }
+
+        if (!isMounted) return;
+        setModules(Array.isArray(modulesPayload.modules) ? modulesPayload.modules : []);
+        setPresenters(Array.isArray(presentersPayload.presenters) ? presentersPayload.presenters : []);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error('Failed to load lesson creation options', error);
+        setOptionsError(error.message ?? 'Unable to load lesson options.');
+      } finally {
+        if (isMounted) setOptionsLoading(false);
+      }
+    }
+
+    fetchOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAdmin) return;
+    window.scrollTo(0, 0);
+  }, [loading, isAdmin]);
+
+  const presenterOptions = useMemo(() => presenters, [presenters]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!title.trim()) {
+      setFormError('Title is required.');
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      const payload = {
+        title: title.trim(),
+        moduleId: moduleId || null,
+        format: format || null,
+        duration: duration || null,
+        externalUrl: externalUrl || null,
+        imageUrl: imageUrl || null,
+        isEnhancedOnly,
+        presenterIds: sanitizeSelection(selectedPresenterIds),
+      };
+
+      const response = await fetch('/api/admin/lessons', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseBody = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseBody.error ?? 'Unable to create lesson.');
+      }
+
+      router.replace('/admin/content?view=lessons');
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to create lesson', error);
+      setFormError(error.message ?? 'Unable to create lesson.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading || !isAdmin) {
+    return null;
+  }
+
+  const activeHref = '/admin/content?view=lessons';
+
+  return (
+    <div className="flex flex-col">
+      <SubNav items={CONTENT_SECTION_ITEMS} activePathOverride={activeHref} />
+      <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
+        <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-[30px]">
+          <div className="flex items-center justify-between pt-[45px]">
+            <div>
+              <h1 className="text-left text-3xl font-semibold text-primary">Create lesson</h1>
+              <p className="mt-2 text-sm text-textdark/70">
+                Capture lesson essentials, assign it to a module, and pick presenters. You can manage finer details in Supabase later if needed.
+              </p>
+            </div>
+            <Link
+              href="/admin/content?view=lessons"
+              className="hidden rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white sm:inline-flex"
+            >
+              Cancel
+            </Link>
+          </div>
+
+          <section className="rounded-md bg-white p-6 shadow-sm">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-semibold text-primary">Lesson details</h2>
+              <p className="text-sm text-textdark/60">Fields marked with * are required.</p>
+            </div>
+
+            {optionsError ? (
+              <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                {optionsError}
+              </div>
+            ) : null}
+
+            {formError ? (
+              <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                {formError}
+              </div>
+            ) : null}
+
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col text-sm font-medium text-primary">
+                  Title *
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="e.g. Running an effective sales call"
+                    required
+                  />
+                </label>
+
+                <label className="flex flex-col text-sm font-medium text-primary">
+                  Module
+                  <select
+                    value={moduleId}
+                    onChange={(event) => setModuleId(event.target.value)}
+                    disabled={optionsLoading}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">Unassigned</option>
+                    {modules.map((module) => {
+                      const label = module.type
+                        ? `${module.title} (${module.type})`
+                        : module.title;
+                      return (
+                        <option key={module.id} value={module.id}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                <label className="flex flex-col text-sm font-medium text-primary">
+                  Format
+                  <input
+                    type="text"
+                    value={format}
+                    onChange={(event) => setFormat(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="e.g. Video, Podcast, Worksheet"
+                  />
+                </label>
+
+                <label className="flex flex-col text-sm font-medium text-primary">
+                  Duration
+                  <input
+                    type="text"
+                    value={duration}
+                    onChange={(event) => setDuration(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="e.g. 18 min"
+                  />
+                </label>
+
+                <label className="flex flex-col text-sm font-medium text-primary md:col-span-2">
+                  External URL
+                  <input
+                    type="url"
+                    value={externalUrl}
+                    onChange={(event) => setExternalUrl(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="https://"
+                  />
+                </label>
+
+                <label className="flex flex-col text-sm font-medium text-primary md:col-span-2">
+                  Image URL
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(event) => setImageUrl(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="https://"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-4 rounded-md border border-slate-200 p-4">
+                <label className="flex items-center gap-3 text-sm font-medium text-primary">
+                  <input
+                    type="checkbox"
+                    checked={isEnhancedOnly}
+                    onChange={(event) => setIsEnhancedOnly(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                  />
+                  Mark as Enhanced only content
+                </label>
+                <p className="text-xs text-textdark/60">
+                  Enhanced-only lessons appear exclusively for members with Enhanced access.
+                </p>
+              </div>
+
+              <div>
+                <label className="flex flex-col text-sm font-medium text-primary">
+                  Presenters
+                  <select
+                    multiple
+                    value={selectedPresenterIds}
+                    onChange={(event) => {
+                      const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+                      setSelectedPresenterIds(values);
+                    }}
+                    disabled={optionsLoading}
+                    className="mt-1 h-40 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {presenterOptions.map((presenter) => (
+                      <option key={presenter.id} value={String(presenter.id)}>
+                        {presenter.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="mt-2 text-xs text-textdark/60">
+                  Hold Cmd ⌘ (Mac) or Ctrl (Windows) to select multiple presenters.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Link
+                  href="/admin/content?view=lessons"
+                  className="inline-flex items-center justify-center rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white"
+                >
+                  Cancel
+                </Link>
+                <button
+                  type="submit"
+                  disabled={submitting || optionsLoading}
+                  className="inline-flex items-center justify-center rounded-full bg-action px-6 py-2 text-sm font-semibold text-white transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitting ? 'Creating…' : 'Create lesson'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}

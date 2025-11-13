@@ -247,7 +247,11 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4 md:h-full">
               <h2 className="text-xl font-semibold text-primary">Events</h2>
               {/* TODO: Replace stub props with real event data when API is connected */}
-              <EventsListCard events={events} isLoading={eventsLoading} />
+              <EventsListCard
+                events={events}
+                isLoading={eventsLoading}
+                bookSessionHref="#"
+              />
             </div>
           </section>
           <section className="mt-8 flex flex-col gap-4">
