@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 
-function normalizeModule(record) {
+export function normalizeModule(record) {
   if (!record) return null;
   return {
     id: record.id,
@@ -32,5 +32,46 @@ export async function GET() {
   } catch (error) {
     console.error('[api/admin/modules] Failed to load modules', error);
     return NextResponse.json({ error: 'Unable to load modules.' }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { title, type = null, sequence = null } = body ?? {};
+
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
+    }
+
+    let sequenceValue = null;
+    if (sequence !== null && sequence !== undefined && String(sequence).trim() !== '') {
+      const parsedSequence = Number(sequence);
+      if (!Number.isFinite(parsedSequence)) {
+        return NextResponse.json({ error: 'Sequence must be a number.' }, { status: 400 });
+      }
+      sequenceValue = parsedSequence;
+    }
+
+    const supabase = createSupabaseServiceClient();
+
+    const { data, error } = await supabase
+      .from('modules')
+      .insert({
+        title: title.trim(),
+        type: typeof type === 'string' && type.trim() ? type.trim() : null,
+        sequence: sequenceValue,
+      })
+      .select('id, title, type, sequence')
+      .single();
+
+    if (error) throw error;
+
+    const moduleRecord = normalizeModule(data);
+
+    return NextResponse.json({ module: moduleRecord }, { status: 201 });
+  } catch (error) {
+    console.error('[api/admin/modules] Failed to create module', error);
+    return NextResponse.json({ error: 'Unable to create module.' }, { status: 500 });
   }
 }
