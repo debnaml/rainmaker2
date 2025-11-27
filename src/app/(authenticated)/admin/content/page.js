@@ -42,6 +42,8 @@ export default function AdminContentPage() {
   const [lessons, setLessons] = useState([]);
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [lessonsError, setLessonsError] = useState(null);
+  const [lessonDeleteSubmittingId, setLessonDeleteSubmittingId] = useState(null);
+  const [lessonDeleteError, setLessonDeleteError] = useState(null);
 
   const [modules, setModules] = useState([]);
   const [modulesLoading, setModulesLoading] = useState(false);
@@ -65,13 +67,15 @@ export default function AdminContentPage() {
     }
   }, [loading, isAdmin, router]);
 
+  const hasViewParam = searchParams?.has('view') ?? false;
+  const viewIsValid = viewParam ? VALID_VIEWS.has(viewParam) : false;
+
   useEffect(() => {
     if (loading) return;
     if (!isAdmin) return;
-    if (!viewParam || !VALID_VIEWS.has(viewParam)) {
-      router.replace(`/admin/content?view=${DEFAULT_VIEW}`);
-    }
-  }, [isAdmin, loading, router, viewParam]);
+    if (hasViewParam && viewIsValid) return;
+    router.replace(`/admin/content?view=${DEFAULT_VIEW}`);
+  }, [hasViewParam, isAdmin, loading, router, viewIsValid]);
 
   useEffect(() => {
     if (!isAdmin || !isLessonsView) return;
@@ -211,6 +215,45 @@ export default function AdminContentPage() {
     setCreateType('');
     setCreateSequence('');
     setCreateError(null);
+  };
+
+  const handleEditLesson = (lessonId) => {
+    if (!lessonId) return;
+    router.push(`/admin/content/${lessonId}/edit`);
+  };
+
+  const handleDeleteLesson = async (lessonId) => {
+    const confirmed = window.confirm('Delete this lesson? This action cannot be undone.');
+    if (!confirmed) return;
+
+    setLessonDeleteSubmittingId(lessonId);
+    setLessonDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/admin/lessons/${lessonId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        let message = 'Unable to delete lesson.';
+        try {
+          const responseBody = await response.json();
+          if (responseBody?.error) {
+            message = responseBody.error;
+          }
+        } catch (parseError) {
+          // response not JSON, ignore
+        }
+        throw new Error(message);
+      }
+
+      setLessons((previous) => previous.filter((lesson) => lesson.id !== lessonId));
+    } catch (error) {
+      console.error('Failed to delete lesson', error);
+      setLessonDeleteError(error.message ?? 'Unable to delete lesson.');
+    } finally {
+      setLessonDeleteSubmittingId(null);
+    }
   };
 
   const handleCreateModule = async (event) => {
@@ -405,6 +448,9 @@ export default function AdminContentPage() {
               {lessonsError ? (
                 <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{lessonsError}</div>
               ) : null}
+              {lessonDeleteError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{lessonDeleteError}</div>
+              ) : null}
               {lessonsLoading ? (
                 <div className="space-y-3">
                   {[0, 1, 2, 3, 4].map((index) => (
@@ -427,11 +473,15 @@ export default function AdminContentPage() {
                         <th scope="col" className="px-4 py-3 text-left">Tags</th>
                         <th scope="col" className="px-4 py-3 text-left">Enhanced</th>
                         <th scope="col" className="px-4 py-3 text-left">Created</th>
+                        <th scope="col" className="px-4 py-3 text-left">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E4E2EF] bg-white text-textdark/80">
-                      {lessonRows.map((lesson) => (
-                        <tr key={lesson.id} className="hover:bg-primary/5">
+                      {lessonRows.map((lesson) => {
+                        const isDeletingLesson = lessonDeleteSubmittingId === lesson.id;
+
+                        return (
+                          <tr key={lesson.id} className="hover:bg-primary/5">
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
                               <span className="font-semibold text-primary">{lesson.title}</span>
@@ -456,8 +506,29 @@ export default function AdminContentPage() {
                           </td>
                           <td className="px-4 py-3">{lesson.enhanced}</td>
                           <td className="px-4 py-3">{lesson.createdAt}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditLesson(lesson.id)}
+                                className="inline-flex items-center justify-center rounded-full border border-primary px-3 py-1 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white"
+                                disabled={isDeletingLesson}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLesson(lesson.id)}
+                                className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                disabled={isDeletingLesson}
+                              >
+                                {isDeletingLesson ? 'Removing…' : 'Delete'}
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

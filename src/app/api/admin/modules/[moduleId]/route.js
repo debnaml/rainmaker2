@@ -14,9 +14,11 @@ function parseSequence(sequence) {
   return value;
 }
 
-export async function PATCH(request, { params }) {
+export async function PATCH(request, context) {
   try {
-    const moduleId = params?.moduleId;
+    const rawParams = context?.params;
+    const resolvedParams = rawParams && typeof rawParams.then === 'function' ? await rawParams : rawParams;
+    const moduleId = resolvedParams?.moduleId;
     if (!moduleId) {
       return NextResponse.json({ error: 'Module id is required.' }, { status: 400 });
     }
@@ -74,9 +76,11 @@ export async function PATCH(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
-    const moduleId = params?.moduleId;
+    const rawParams = context?.params;
+    const resolvedParams = rawParams && typeof rawParams.then === 'function' ? await rawParams : rawParams;
+    const moduleId = resolvedParams?.moduleId;
     if (!moduleId) {
       return NextResponse.json({ error: 'Module id is required.' }, { status: 400 });
     }

@@ -14,8 +14,33 @@ const CONTENT_SECTION_ITEMS = [
   { key: 'formats', label: 'Formats', href: '/admin/content?view=formats' },
 ];
 
+const TAG_DATALIST_ID = 'admin-lesson-tags';
+
 function sanitizeSelection(values) {
   return Array.isArray(values) ? values.filter((value) => typeof value === 'string' && value.length > 0) : [];
+}
+
+function sanitizeTags(values) {
+  if (!Array.isArray(values)) return [];
+  const seen = new Map();
+  values.forEach((value) => {
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) {
+      seen.set(key, trimmed.slice(0, 60));
+    }
+  });
+  return Array.from(seen.values()).slice(0, 25);
+}
+
+function extractTagCandidates(input) {
+  if (typeof input !== 'string' || !input.trim()) return [];
+  return input
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
 }
 
 export default function NewLessonPage() {
@@ -25,6 +50,7 @@ export default function NewLessonPage() {
 
   const [modules, setModules] = useState([]);
   const [presenters, setPresenters] = useState([]);
+  const [availableTags, setAvailableTags] = useState([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState(null);
 
@@ -36,6 +62,8 @@ export default function NewLessonPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [isEnhancedOnly, setIsEnhancedOnly] = useState(false);
   const [selectedPresenterIds, setSelectedPresenterIds] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -56,15 +84,23 @@ export default function NewLessonPage() {
 
     async function fetchOptions() {
       try {
-        const [modulesResponse, presentersResponse] = await Promise.all([
+        const [modulesResponse, presentersResponse, tagsResponse] = await Promise.all([
           fetch('/api/admin/modules'),
           fetch('/api/admin/presenters'),
+          fetch('/api/admin/tags'),
         ]);
 
         const [modulesPayload, presentersPayload] = await Promise.all([
           modulesResponse.json(),
           presentersResponse.json(),
         ]);
+
+        let tagsPayload = { tags: [] };
+        try {
+          tagsPayload = await tagsResponse.json();
+        } catch (parseError) {
+          console.warn('[admin/new lesson] Failed to parse tags payload', parseError);
+        }
 
         if (!modulesResponse.ok) {
           throw new Error(modulesPayload.error ?? 'Unable to load modules.');
@@ -74,9 +110,16 @@ export default function NewLessonPage() {
           throw new Error(presentersPayload.error ?? 'Unable to load presenters.');
         }
 
+        if (!tagsResponse.ok) {
+          console.warn('[admin/new lesson] Unable to load tags', tagsPayload?.error ?? 'Unknown error');
+        }
+
         if (!isMounted) return;
         setModules(Array.isArray(modulesPayload.modules) ? modulesPayload.modules : []);
         setPresenters(Array.isArray(presentersPayload.presenters) ? presentersPayload.presenters : []);
+        const tagList = Array.isArray(tagsPayload?.tags) ? tagsPayload.tags : [];
+        const sanitizedTagOptions = sanitizeTags(tagList).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        setAvailableTags(sanitizedTagOptions);
       } catch (error) {
         if (!isMounted) return;
         console.error('Failed to load lesson creation options', error);
@@ -101,6 +144,28 @@ export default function NewLessonPage() {
 
   const presenterOptions = useMemo(() => presenters, [presenters]);
 
+  const handleAddTag = (rawValue) => {
+    const candidates = extractTagCandidates(rawValue);
+    if (!candidates.length) {
+      setTagInput('');
+      return;
+    }
+    const next = sanitizeTags([...selectedTags, ...candidates]);
+    setSelectedTags(next);
+    setTagInput('');
+  };
+
+  const handleTagKeyDown = (event) => {
+    if ((event.key === 'Enter' || event.key === ',') && !event.shiftKey) {
+      event.preventDefault();
+      handleAddTag(tagInput);
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setSelectedTags((previous) => previous.filter((tag) => tag.toLowerCase() !== tagToRemove.toLowerCase()));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!title.trim()) {
@@ -121,6 +186,7 @@ export default function NewLessonPage() {
         imageUrl: imageUrl || null,
         isEnhancedOnly,
         presenterIds: sanitizeSelection(selectedPresenterIds),
+        tags: sanitizeTags(selectedTags),
       };
 
       const response = await fetch('/api/admin/lessons', {
@@ -310,6 +376,64 @@ export default function NewLessonPage() {
                 <p className="mt-2 text-xs text-textdark/60">
                   Hold Cmd ⌘ (Mac) or Ctrl (Windows) to select multiple presenters.
                 </p>
+              </div>
+
+              <div>
+                <label className="flex flex-col text-sm font-medium text-primary">
+                  Tags
+                  <div className="mt-1 flex flex-col gap-3">
+                    <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-slate-200 bg-slate-50 p-3">
+                      {selectedTags.length > 0 ? (
+                        selectedTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="text-primary/70 transition hover:text-primary"
+                              aria-label={`Remove tag ${tag}`}
+                              disabled={submitting}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-textdark/50">No tags added yet.</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input
+                        type="text"
+                        list={TAG_DATALIST_ID}
+                        value={tagInput}
+                        onChange={(event) => setTagInput(event.target.value)}
+                        onKeyDown={handleTagKeyDown}
+                        onBlur={() => handleAddTag(tagInput)}
+                        disabled={submitting}
+                        className="w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Type a tag and press Enter"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddTag(tagInput)}
+                        disabled={submitting || !tagInput.trim()}
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Add tag
+                      </button>
+                    </div>
+                  </div>
+                </label>
+                <datalist id={TAG_DATALIST_ID}>
+                  {availableTags.map((tag) => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+                <p className="mt-2 text-xs text-textdark/60">Press Enter or comma to add a tag. Up to 25 tags.</p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

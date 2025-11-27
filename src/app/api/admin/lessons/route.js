@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { derivePresenterDisplayName } from '/lib/presenters';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 
-const SELECT_COLUMNS = [
+export const SELECT_COLUMNS = [
   'id',
   'module_id',
   'title',
@@ -30,33 +30,15 @@ export async function POST(request) {
       externalUrl = null,
       isEnhancedOnly = false,
       presenterIds = [],
+      tags = [],
     } = body ?? {};
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
     }
 
-    const sanitizedPresenterIds = Array.isArray(presenterIds)
-      ? Array.from(
-          new Set(
-            presenterIds
-              .map((value) => {
-                if (value === null || value === undefined) return null;
-                if (typeof value === 'object' && value !== null && 'id' in value) {
-                  return String(value.id);
-                }
-                if (typeof value === 'string') {
-                  return value.trim();
-                }
-                if (typeof value === 'number' && Number.isFinite(value)) {
-                  return String(value);
-                }
-                return null;
-              })
-              .filter((value) => typeof value === 'string' && value.length > 0)
-          )
-        )
-      : [];
+    const sanitizedPresenterIds = sanitizePresenterIds(presenterIds);
+    const sanitizedTags = sanitizeTags(tags);
 
     const supabase = createSupabaseServiceClient();
 
@@ -81,7 +63,7 @@ export async function POST(request) {
 
     let presenters = [];
 
-  if (data?.id && sanitizedPresenterIds.length > 0) {
+    if (data?.id && sanitizedPresenterIds.length > 0) {
       const presenterLinkRows = sanitizedPresenterIds.map((presenterId) => {
         const numericId = Number(presenterId);
         const value = Number.isFinite(numericId) ? numericId : presenterId;
@@ -142,7 +124,33 @@ export async function POST(request) {
       }
     }
 
-    const lesson = normalizeLessonRow(data, presenters);
+    if (data?.id && sanitizedTags.length > 0) {
+      const tagRows = sanitizedTags.map((tag) => ({
+        lesson_id: data.id,
+        tag,
+      }));
+
+      try {
+        const { error: tagInsertError } = await supabase.from('lesson_tags').insert(tagRows);
+        if (tagInsertError) {
+          throw tagInsertError;
+        }
+      } catch (tagInsertError) {
+        console.error('[api/admin/lessons] Failed to attach tags to lesson', tagInsertError);
+        try {
+          await supabase.from('lesson_presenters').delete().eq('lesson_id', data.id);
+        } catch (cleanupLinkError) {
+          console.error('[api/admin/lessons] Failed to remove presenter links after tag error', cleanupLinkError);
+        }
+        const { error: cleanupLessonError } = await supabase.from('lessons').delete().eq('id', data.id);
+        if (cleanupLessonError) {
+          console.error('[api/admin/lessons] Failed to roll back lesson after tag error', cleanupLessonError);
+        }
+        throw tagInsertError;
+      }
+    }
+
+    const lesson = normalizeLessonRow(data, presenters, sanitizedTags);
 
     return NextResponse.json({ lesson }, { status: 201 });
   } catch (error) {
@@ -151,7 +159,31 @@ export async function POST(request) {
   }
 }
 
-function normalizeLessonRow(row, presenters = []) {
+export function sanitizePresenterIds(input) {
+  return Array.isArray(input)
+    ? Array.from(
+        new Set(
+          input
+            .map((value) => {
+              if (value === null || value === undefined) return null;
+              if (typeof value === 'object' && value !== null && 'id' in value) {
+                return String(value.id);
+              }
+              if (typeof value === 'string') {
+                return value.trim();
+              }
+              if (typeof value === 'number' && Number.isFinite(value)) {
+                return String(value);
+              }
+              return null;
+            })
+            .filter((value) => typeof value === 'string' && value.length > 0)
+        )
+      )
+    : [];
+}
+
+export function normalizeLessonRow(row, presenters = [], tags = []) {
   if (!row) return null;
   const { modules, ...rest } = row;
   let moduleRecord = null;
@@ -165,7 +197,34 @@ function normalizeLessonRow(row, presenters = []) {
   return {
     ...rest,
     module: moduleRecord,
-    tags: [],
+    tags,
     presenters,
   };
+}
+
+export function sanitizeTags(input) {
+  if (!Array.isArray(input)) return [];
+  const seen = new Map();
+  input.forEach((value) => {
+    if (value === null || value === undefined) return;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, trimmed);
+      }
+      return;
+    }
+    if (typeof value === 'object' && value !== null && 'name' in value) {
+      const raw = String(value.name ?? '').trim();
+      if (!raw) return;
+      const key = raw.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, raw);
+      }
+      return;
+    }
+  });
+  return Array.from(seen.values()).slice(0, 25);
 }

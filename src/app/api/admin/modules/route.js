@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 
@@ -55,9 +56,12 @@ export async function POST(request) {
 
     const supabase = createSupabaseServiceClient();
 
+    const moduleId = randomUUID();
+
     const { data, error } = await supabase
       .from('modules')
       .insert({
+        id: moduleId,
         title: title.trim(),
         type: typeof type === 'string' && type.trim() ? type.trim() : null,
         sequence: sequenceValue,
