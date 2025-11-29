@@ -18,6 +18,39 @@ export const SELECT_COLUMNS = [
   'modules(id, title, type, sequence)',
 ];
 
+export function parseSequenceValue(sequence, { allowUndefined = false } = {}) {
+  if (sequence === undefined) {
+    return allowUndefined ? { valid: true, value: undefined } : { valid: true, value: null };
+  }
+
+  if (sequence === null) {
+    return { valid: true, value: null };
+  }
+
+  if (typeof sequence === 'number') {
+    if (!Number.isFinite(sequence)) {
+      return { valid: false, value: null };
+    }
+    return { valid: true, value: sequence };
+  }
+
+  if (typeof sequence === 'string') {
+    const trimmed = sequence.trim();
+    if (!trimmed) {
+      return { valid: true, value: null };
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return { valid: false, value: null };
+    }
+
+    return { valid: true, value: parsed };
+  }
+
+  return { valid: false, value: null };
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -28,6 +61,7 @@ export async function POST(request) {
       duration = null,
       imageUrl = null,
       externalUrl = null,
+      sequence,
       isEnhancedOnly = false,
       presenterIds = [],
       tags = [],
@@ -39,23 +73,33 @@ export async function POST(request) {
 
     const sanitizedPresenterIds = sanitizePresenterIds(presenterIds);
     const sanitizedTags = sanitizeTags(tags);
+    const sequenceResult = parseSequenceValue(sequence, { allowUndefined: true });
+    if (!sequenceResult.valid) {
+      return NextResponse.json({ error: 'Sequence must be a number.' }, { status: 400 });
+    }
 
     const supabase = createSupabaseServiceClient();
 
     const lessonId = randomUUID();
 
+    const newLessonRow = {
+      id: lessonId,
+      title: title.trim(),
+      module_id: moduleId || null,
+      format: format || null,
+      duration: duration || null,
+      image_url: imageUrl || null,
+      url: externalUrl || null,
+      is_enhanced_only: Boolean(isEnhancedOnly),
+    };
+
+    if (sequenceResult.value !== undefined) {
+      newLessonRow.sequence = sequenceResult.value;
+    }
+
     const { data, error } = await supabase
       .from('lessons')
-      .insert({
-        id: lessonId,
-        title: title.trim(),
-        module_id: moduleId || null,
-        format: format || null,
-        duration: duration || null,
-        image_url: imageUrl || null,
-        url: externalUrl || null,
-        is_enhanced_only: Boolean(isEnhancedOnly),
-      })
+      .insert(newLessonRow)
       .select(SELECT_COLUMNS.join(', '))
       .maybeSingle();
 

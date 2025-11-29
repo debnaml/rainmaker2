@@ -16,6 +16,13 @@ const CONTENT_SECTION_ITEMS = [
 const VALID_VIEWS = new Set(['lessons', 'modules']);
 const DEFAULT_VIEW = 'lessons';
 const MODULE_TYPE_DATALIST_ID = 'admin-module-types';
+const LESSON_SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'sequence', label: 'Module & lesson order' },
+  { value: 'title-asc', label: 'Title A → Z' },
+  { value: 'title-desc', label: 'Title Z → A' },
+];
 
 function formatDate(value) {
   if (!value) return '—';
@@ -44,6 +51,11 @@ export default function AdminContentPage() {
   const [lessonsError, setLessonsError] = useState(null);
   const [lessonDeleteSubmittingId, setLessonDeleteSubmittingId] = useState(null);
   const [lessonDeleteError, setLessonDeleteError] = useState(null);
+  const [lessonSearch, setLessonSearch] = useState('');
+  const [lessonModuleFilter, setLessonModuleFilter] = useState('all');
+  const [lessonFormatFilter, setLessonFormatFilter] = useState('all');
+  const [lessonEnhancedFilter, setLessonEnhancedFilter] = useState('all');
+  const [lessonSortOrder, setLessonSortOrder] = useState('newest');
 
   const [modules, setModules] = useState([]);
   const [modulesLoading, setModulesLoading] = useState(false);
@@ -149,8 +161,120 @@ export default function AdminContentPage() {
     };
   }, [isAdmin, isModulesView]);
 
+  const lessonModuleOptions = useMemo(() => {
+    const map = new Map();
+    lessons.forEach((lesson) => {
+      const moduleId = lesson?.module?.id != null ? String(lesson.module.id) : 'unassigned';
+      const label = lesson?.module?.title ?? 'Unassigned';
+      const sequence = lesson?.module?.sequence ?? Number.MAX_SAFE_INTEGER;
+      if (!map.has(moduleId)) {
+        map.set(moduleId, { id: moduleId, label, sequence });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.sequence !== b.sequence) return a.sequence - b.sequence;
+      return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+    });
+  }, [lessons]);
+
+  const lessonFormatOptions = useMemo(() => {
+    const formats = new Set();
+    lessons.forEach((lesson) => {
+      if (lesson?.format) {
+        formats.add(lesson.format);
+      }
+    });
+    return Array.from(formats).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [lessons]);
+
+  const filteredLessons = useMemo(() => {
+    const normaliseSequence = (value) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+    };
+
+    const normaliseTimestamp = (value) => {
+      if (!value) return 0;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const searchValue = lessonSearch.trim().toLowerCase();
+
+    const filtered = lessons.filter((lesson) => {
+      const moduleId = lesson?.module?.id != null ? String(lesson.module.id) : 'unassigned';
+      const moduleTitle = lesson?.module?.title ?? 'Unassigned';
+      const format = lesson?.format ?? '';
+      const title = lesson?.title ?? '';
+      const description = lesson?.description ?? '';
+      const tags = Array.isArray(lesson?.tags) ? lesson.tags.join(' ') : '';
+      const enhanced = Boolean(lesson?.is_enhanced_only);
+
+      const matchesSearch = searchValue
+        ? `${title} ${description} ${moduleTitle} ${format} ${tags}`.toLowerCase().includes(searchValue)
+        : true;
+
+      const matchesModule = lessonModuleFilter === 'all' ? true : moduleId === lessonModuleFilter;
+
+      const matchesFormat =
+        lessonFormatFilter === 'all'
+          ? true
+          : format.toLowerCase() === lessonFormatFilter.toLowerCase();
+
+      const matchesEnhanced = (() => {
+        if (lessonEnhancedFilter === 'all') return true;
+        if (lessonEnhancedFilter === 'enhanced') return enhanced;
+        if (lessonEnhancedFilter === 'standard') return !enhanced;
+        return true;
+      })();
+
+      return matchesSearch && matchesModule && matchesFormat && matchesEnhanced;
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      const createdA = normaliseTimestamp(a?.created_at);
+      const createdB = normaliseTimestamp(b?.created_at);
+      const moduleSequenceA = normaliseSequence(a?.module?.sequence);
+      const moduleSequenceB = normaliseSequence(b?.module?.sequence);
+      const lessonSequenceA = normaliseSequence(a?.sequence);
+      const lessonSequenceB = normaliseSequence(b?.sequence);
+      const titleA = (a?.title ?? '').toLowerCase();
+      const titleB = (b?.title ?? '').toLowerCase();
+
+      switch (lessonSortOrder) {
+        case 'oldest':
+          return createdA - createdB;
+        case 'sequence':
+          if (moduleSequenceA !== moduleSequenceB) return moduleSequenceA - moduleSequenceB;
+          if (lessonSequenceA !== lessonSequenceB) return lessonSequenceA - lessonSequenceB;
+          return titleA.localeCompare(titleB);
+        case 'title-asc':
+          return titleA.localeCompare(titleB);
+        case 'title-desc':
+          return titleB.localeCompare(titleA);
+        case 'newest':
+        default:
+          return createdB - createdA;
+      }
+    });
+
+    return sorted;
+  }, [lessons, lessonSearch, lessonModuleFilter, lessonFormatFilter, lessonEnhancedFilter, lessonSortOrder]);
+
+  const hasLessonFilters = useMemo(() => {
+    return (
+      Boolean(lessonSearch.trim()) ||
+      lessonModuleFilter !== 'all' ||
+      lessonFormatFilter !== 'all' ||
+      lessonEnhancedFilter !== 'all' ||
+      lessonSortOrder !== 'newest'
+    );
+  }, [lessonSearch, lessonModuleFilter, lessonFormatFilter, lessonEnhancedFilter, lessonSortOrder]);
+
   const lessonRows = useMemo(() => {
-    return lessons.map((lesson) => {
+    return filteredLessons.map((lesson) => {
       const moduleTitle = lesson?.module?.title ?? 'Unassigned';
       const moduleType = lesson?.module?.type
         ? lesson.module.type.charAt(0).toUpperCase() + lesson.module.type.slice(1)
@@ -169,7 +293,7 @@ export default function AdminContentPage() {
         enhanced: lesson.is_enhanced_only ? 'Yes' : 'No',
       };
     });
-  }, [lessons]);
+  }, [filteredLessons]);
 
   const moduleTypeOptions = useMemo(() => {
     const unique = new Set();
@@ -459,10 +583,117 @@ export default function AdminContentPage() {
                 </div>
               ) : lessonRows.length === 0 ? (
                 <div className="rounded-md border border-dashed border-primary/30 bg-white/60 p-6 text-sm text-textdark/70">
-                  No lessons found yet. Create a lesson to get started.
+                  {hasLessonFilters
+                    ? 'No lessons match the current filters.'
+                    : 'No lessons found yet. Create a lesson to get started.'}
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-md border border-[#E4E2EF]">
+                <>
+                  <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="admin-lessons-search" className="text-xs font-semibold uppercase tracking-wide text-textdark/50">
+                        Search
+                      </label>
+                      <input
+                        id="admin-lessons-search"
+                        type="search"
+                        value={lessonSearch}
+                        onChange={(event) => setLessonSearch(event.target.value)}
+                        placeholder="Title, module, tag…"
+                        className="w-full rounded-md border border-[#D9D9D9] px-3 py-2 text-sm text-textdark focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="admin-lessons-module" className="text-xs font-semibold uppercase tracking-wide text-textdark/50">
+                        Module
+                      </label>
+                      <select
+                        id="admin-lessons-module"
+                        value={lessonModuleFilter}
+                        onChange={(event) => setLessonModuleFilter(event.target.value)}
+                        className="w-full rounded-md border border-[#D9D9D9] bg-white px-3 py-2 text-sm text-textdark focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="all">All modules</option>
+                        {lessonModuleOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="admin-lessons-format" className="text-xs font-semibold uppercase tracking-wide text-textdark/50">
+                        Format
+                      </label>
+                      <select
+                        id="admin-lessons-format"
+                        value={lessonFormatFilter}
+                        onChange={(event) => setLessonFormatFilter(event.target.value)}
+                        className="w-full rounded-md border border-[#D9D9D9] bg-white px-3 py-2 text-sm text-textdark focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="all">All formats</option>
+                        {lessonFormatOptions.map((format) => (
+                          <option key={format} value={format}>
+                            {format}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="admin-lessons-enhanced" className="text-xs font-semibold uppercase tracking-wide text-textdark/50">
+                        Access
+                      </label>
+                      <select
+                        id="admin-lessons-enhanced"
+                        value={lessonEnhancedFilter}
+                        onChange={(event) => setLessonEnhancedFilter(event.target.value)}
+                        className="w-full rounded-md border border-[#D9D9D9] bg-white px-3 py-2 text-sm text-textdark focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="all">All lessons</option>
+                        <option value="enhanced">Enhanced only</option>
+                        <option value="standard">Standard access</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="admin-lessons-sort" className="text-xs font-semibold uppercase tracking-wide text-textdark/50">
+                        Sort by
+                      </label>
+                      <select
+                        id="admin-lessons-sort"
+                        value={lessonSortOrder}
+                        onChange={(event) => setLessonSortOrder(event.target.value)}
+                        className="w-full rounded-md border border-[#D9D9D9] bg-white px-3 py-2 text-sm text-textdark focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        {LESSON_SORT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLessonSearch('');
+                          setLessonModuleFilter('all');
+                          setLessonFormatFilter('all');
+                          setLessonEnhancedFilter('all');
+                          setLessonSortOrder('newest');
+                        }}
+                        className="w-full rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-md border border-[#E4E2EF]">
                   <table className="min-w-full divide-y divide-[#E4E2EF] text-sm">
                     <thead className="bg-[#F8F7FC] text-xs font-semibold uppercase tracking-wide text-textdark/60">
                       <tr>
@@ -531,7 +762,8 @@ export default function AdminContentPage() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
             </section>
           ) : null}

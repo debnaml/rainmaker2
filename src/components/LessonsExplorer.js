@@ -86,7 +86,7 @@ export default function LessonsExplorer({
   const filteredLessons = useMemo(() => {
     if (!Array.isArray(lessons)) return [];
 
-    return lessons.filter((lesson) => {
+    const passesFilters = lessons.filter((lesson) => {
       const title = lesson?.title ?? '';
       const description = lesson?.description ?? '';
       const formatValue = lesson?.format ?? '';
@@ -120,6 +120,8 @@ export default function LessonsExplorer({
 
       return matchesSearch && matchesFormat && matchesTags && matchesDuration;
     });
+
+    return passesFilters;
   }, [lessons, searchTerm, formatFilter, selectedTags, durationFilter]);
 
   useEffect(() => {

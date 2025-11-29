@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '/lib/authContext';
 import SubNav from '~/components/SubNav';
@@ -14,33 +14,70 @@ const CONTENT_SECTION_ITEMS = [
   { key: 'formats', label: 'Formats', href: '/admin/content?view=formats' },
 ];
 
-const TAG_DATALIST_ID = 'admin-lesson-tags';
-
 function sanitizeSelection(values) {
   return Array.isArray(values) ? values.filter((value) => typeof value === 'string' && value.length > 0) : [];
 }
 
-function sanitizeTags(values) {
-  if (!Array.isArray(values)) return [];
-  const seen = new Map();
-  values.forEach((value) => {
-    if (typeof value !== 'string') return;
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const key = trimmed.toLowerCase();
-    if (!seen.has(key)) {
-      seen.set(key, trimmed.slice(0, 60));
+const TAG_DATALIST_ID = 'admin-edit-lesson-tags';
+const MAX_TAG_COUNT = 25;
+const MAX_TAG_LENGTH = 60;
+
+function parseSequenceInput(rawValue) {
+  if (rawValue === undefined) {
+    return { valid: true, value: null };
+  }
+
+  if (rawValue === null) {
+    return { valid: true, value: null };
+  }
+
+  if (typeof rawValue === 'number') {
+    if (!Number.isFinite(rawValue)) {
+      return { valid: false, value: null };
     }
-  });
-  return Array.from(seen.values()).slice(0, 25);
+    return { valid: true, value: rawValue };
+  }
+
+  const trimmed = String(rawValue).trim();
+  if (!trimmed) {
+    return { valid: true, value: null };
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return { valid: false, value: null };
+  }
+
+  return { valid: true, value: parsed };
 }
 
-function extractTagCandidates(input) {
-  if (typeof input !== 'string' || !input.trim()) return [];
-  return input
+function normalizeTagValue(rawValue) {
+  if (typeof rawValue !== 'string') return null;
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+  return trimmed.length > MAX_TAG_LENGTH ? trimmed.slice(0, MAX_TAG_LENGTH) : trimmed;
+}
+
+function tokenizeTagInput(rawValue) {
+  if (typeof rawValue !== 'string') return [];
+  return rawValue
     .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+    .map((value) => normalizeTagValue(value))
+    .filter(Boolean);
+}
+
+function sanitizeTagList(values) {
+  if (!Array.isArray(values)) return [];
+  const unique = new Map();
+  values.forEach((value) => {
+    const normalized = normalizeTagValue(value);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (!unique.has(key) && unique.size < MAX_TAG_COUNT) {
+      unique.set(key, normalized);
+    }
+  });
+  return Array.from(unique.values());
 }
 
 export default function EditLessonPage() {
@@ -65,10 +102,12 @@ export default function EditLessonPage() {
   const [duration, setDuration] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [sequence, setSequence] = useState('');
   const [isEnhancedOnly, setIsEnhancedOnly] = useState(false);
   const [selectedPresenterIds, setSelectedPresenterIds] = useState([]);
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [tagChips, setTagChips] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const tagKeyRef = useRef(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -122,9 +161,8 @@ export default function EditLessonPage() {
         if (!isMounted) return;
         setModules(Array.isArray(modulesPayload.modules) ? modulesPayload.modules : []);
         setPresenters(Array.isArray(presentersPayload.presenters) ? presentersPayload.presenters : []);
-        const tagList = Array.isArray(tagsPayload?.tags) ? tagsPayload.tags : [];
-        const sanitizedTagOptions = sanitizeTags(tagList).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-        setAvailableTags(sanitizedTagOptions);
+        const tagList = Array.isArray(tagsPayload?.tags) ? sanitizeTagList(tagsPayload.tags) : [];
+        setAvailableTags(tagList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
       } catch (error) {
         if (!isMounted) return;
         console.error('Failed to load edit lesson options', error);
@@ -172,9 +210,17 @@ export default function EditLessonPage() {
         setDuration(lesson.duration ?? '');
         setExternalUrl(lesson.url ?? '');
         setImageUrl(lesson.image_url ?? '');
+        setSequence(lesson.sequence !== null && lesson.sequence !== undefined ? String(lesson.sequence) : '');
         setIsEnhancedOnly(Boolean(lesson.is_enhanced_only));
         setSelectedPresenterIds(Array.isArray(lesson.presenterIds) ? lesson.presenterIds.map(String) : []);
-        setSelectedTags(Array.isArray(lesson.tags) ? sanitizeTags(lesson.tags) : []);
+        const sanitizedTags = Array.isArray(lesson.tags) ? sanitizeTagList(lesson.tags) : [];
+        let nextKey = 0;
+        const chips = sanitizedTags.map((label) => {
+          nextKey += 1;
+          return { id: `tag-${nextKey}`, label };
+        });
+        tagKeyRef.current = nextKey;
+        setTagChips(chips);
       } catch (error) {
         if (!isMounted) return;
         console.error('Failed to load lesson for editing', error);
@@ -200,13 +246,35 @@ export default function EditLessonPage() {
   const presenterOptions = useMemo(() => presenters, [presenters]);
 
   const handleAddTag = (rawValue) => {
-    const candidates = extractTagCandidates(rawValue);
+    const candidates = tokenizeTagInput(rawValue);
     if (!candidates.length) {
       setTagInput('');
       return;
     }
-    const next = sanitizeTags([...selectedTags, ...candidates]);
-    setSelectedTags(next);
+
+    setTagChips((previous) => {
+      const prior = Array.isArray(previous) ? previous : [];
+      if (prior.length >= MAX_TAG_COUNT) {
+        return prior;
+      }
+
+      const existing = new Set(prior.map((chip) => chip.label.toLowerCase()));
+      const next = [...prior];
+
+      candidates.forEach((label) => {
+        if (!label) return;
+        const key = label.toLowerCase();
+        if (existing.has(key)) return;
+        if (next.length >= MAX_TAG_COUNT) return;
+        existing.add(key);
+        tagKeyRef.current += 1;
+        next.push({ id: `tag-${tagKeyRef.current}`, label });
+        console.log('[admin/edit lesson] Added tag chip', { label, total: next.length });
+      });
+
+      return next;
+    });
+
     setTagInput('');
   };
 
@@ -217,8 +285,43 @@ export default function EditLessonPage() {
     }
   };
 
-  const handleRemoveTag = (tagToRemove) => {
-    setSelectedTags((previous) => previous.filter((tag) => tag.toLowerCase() !== tagToRemove.toLowerCase()));
+  const handleRemoveTag = (chipId, expectedLabel) => {
+    setTagChips((previous) => {
+      const prior = Array.isArray(previous) ? previous : [];
+      if (!prior.length) {
+        console.info('[admin/edit lesson] Ignored tag removal because no chips are present', { chipId });
+        return prior;
+      }
+
+      const targetIndex = prior.findIndex((chip) => chip.id === chipId);
+      if (targetIndex === -1) {
+        console.warn('[admin/edit lesson] Failed to remove tag chip because it was not found', {
+          chipId,
+          chipIds: prior.map((chip) => chip.id),
+        });
+        return prior;
+      }
+
+      const target = prior[targetIndex];
+      if (expectedLabel && target.label !== expectedLabel) {
+        console.error('[admin/edit lesson] Refused to remove tag chip because the label mismatched the id', {
+          chipId,
+          expectedLabel,
+          actualLabel: target.label,
+        });
+        return prior;
+      }
+
+      const next = [...prior.slice(0, targetIndex), ...prior.slice(targetIndex + 1)];
+      console.log('[admin/edit lesson] Removed tag chip', {
+        chipId,
+        label: target.label,
+        remaining: next.length,
+        before: prior.map((chip) => chip.label),
+        after: next.map((chip) => chip.label),
+      });
+      return next;
+    });
   };
 
   const handleSubmit = async (event) => {
@@ -233,6 +336,11 @@ export default function EditLessonPage() {
     setFormError(null);
 
     try {
+      const parsedSequence = parseSequenceInput(sequence);
+      if (!parsedSequence.valid) {
+        throw new Error('Sequence must be a valid number.');
+      }
+
       const payload = {
         title: title.trim(),
         moduleId: moduleId || null,
@@ -240,9 +348,10 @@ export default function EditLessonPage() {
         duration: duration || null,
         externalUrl: externalUrl || null,
         imageUrl: imageUrl || null,
+        sequence: parsedSequence.value,
         isEnhancedOnly,
         presenterIds: sanitizeSelection(selectedPresenterIds),
-        tags: sanitizeTags(selectedTags),
+        tags: sanitizeTagList(tagChips.map((chip) => chip.label)),
       };
 
       const response = await fetch(`/api/admin/lessons/${lessonId}`, {
@@ -379,6 +488,22 @@ export default function EditLessonPage() {
                     />
                   </label>
 
+                  <label className="flex flex-col text-sm font-medium text-primary">
+                    Sequence
+                    <input
+                      type="number"
+                      value={sequence}
+                      onChange={(event) => setSequence(event.target.value)}
+                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="e.g. 1"
+                      disabled={submitting}
+                      inputMode="numeric"
+                    />
+                    <span className="mt-1 text-xs font-normal text-textdark/60">
+                      Controls lesson order within its module. Leave blank to keep existing placement.
+                    </span>
+                  </label>
+
                   <label className="flex flex-col text-sm font-medium text-primary md:col-span-2">
                     External URL
                     <input
@@ -450,18 +575,18 @@ export default function EditLessonPage() {
                     Tags
                     <div className="mt-1 flex flex-col gap-3">
                       <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-slate-200 bg-slate-50 p-3">
-                        {selectedTags.length > 0 ? (
-                          selectedTags.map((tag) => (
+                        {tagChips.length > 0 ? (
+                          tagChips.map((chip) => (
                             <span
-                              key={tag}
+                              key={chip.id}
                               className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
                             >
-                              {tag}
+                              {chip.label}
                               <button
                                 type="button"
-                                onClick={() => handleRemoveTag(tag)}
+                                onClick={() => handleRemoveTag(chip.id, chip.label)}
                                 className="text-primary/70 transition hover:text-primary"
-                                aria-label={`Remove tag ${tag}`}
+                                aria-label={`Remove tag ${chip.label}`}
                                 disabled={submitting}
                               >
                                 ×
@@ -479,7 +604,6 @@ export default function EditLessonPage() {
                           value={tagInput}
                           onChange={(event) => setTagInput(event.target.value)}
                           onKeyDown={handleTagKeyDown}
-                          onBlur={() => handleAddTag(tagInput)}
                           disabled={submitting}
                           className="w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                           placeholder="Type a tag and press Enter"

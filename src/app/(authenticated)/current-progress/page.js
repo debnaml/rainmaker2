@@ -18,7 +18,7 @@ function LessonStatusBadge({ status }) {
   const normalized = status ?? 'not_started';
   if (normalized === 'completed') {
     return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
         ✓
       </span>
     );
@@ -26,14 +26,14 @@ function LessonStatusBadge({ status }) {
 
   if (normalized === 'in_progress') {
     return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-primary text-xs font-semibold text-primary">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary text-xs font-semibold text-primary">
         •
       </span>
     );
   }
 
   return (
-    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#D9D9D9] text-xs font-semibold text-[#D9D9D9]">
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#D9D9D9] text-xs font-semibold text-[#D9D9D9]">
       •
     </span>
   );
@@ -167,8 +167,10 @@ export default function CurrentProgressPage() {
       >
         <div className="flex flex-1 items-center gap-3">
           <LessonStatusBadge status={status} />
-          <div className="flex flex-col">
-            <span className="font-medium text-[#237781]">{lesson.title ?? 'Untitled lesson'}</span>
+          <div className="flex flex-1 flex-col">
+            <span className="font-medium leading-snug text-[#237781] break-words">
+              {lesson.title ?? 'Untitled lesson'}
+            </span>
           </div>
         </div>
       </Link>

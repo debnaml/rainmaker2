@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { derivePresenterDisplayName } from '/lib/presenters';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
-import { normalizeLessonRow, sanitizePresenterIds, sanitizeTags, SELECT_COLUMNS } from '../route';
+import { normalizeLessonRow, parseSequenceValue, sanitizePresenterIds, sanitizeTags, SELECT_COLUMNS } from '../route';
 
 async function fetchLessonRecord(supabase, lessonId) {
   const { data, error } = await supabase
@@ -121,9 +121,10 @@ export async function PATCH(request, context) {
       duration = null,
       imageUrl = null,
       externalUrl = null,
+      sequence,
       isEnhancedOnly = false,
       presenterIds = [],
-      tags = [],
+      tags,
     } = body ?? {};
 
     if (!title || typeof title !== 'string' || !title.trim()) {
@@ -131,20 +132,32 @@ export async function PATCH(request, context) {
     }
 
     const sanitizedPresenterIds = sanitizePresenterIds(presenterIds);
-    const sanitizedTags = sanitizeTags(tags);
+    const tagsProvided = Object.prototype.hasOwnProperty.call(body ?? {}, 'tags');
+    const sanitizedTags = tagsProvided ? sanitizeTags(Array.isArray(tags) ? tags : []) : null;
+    const sequenceProvided = Object.prototype.hasOwnProperty.call(body ?? {}, 'sequence');
+    const sequenceResult = sequenceProvided ? parseSequenceValue(sequence, { allowUndefined: true }) : { valid: true, value: undefined };
+    if (!sequenceResult.valid) {
+      return NextResponse.json({ error: 'Sequence must be a number.' }, { status: 400 });
+    }
     const supabase = createSupabaseServiceClient();
+
+    const updates = {
+      title: title.trim(),
+      module_id: moduleId || null,
+      format: format || null,
+      duration: duration || null,
+      image_url: imageUrl || null,
+      url: externalUrl || null,
+      is_enhanced_only: Boolean(isEnhancedOnly),
+    };
+
+    if (sequenceProvided) {
+      updates.sequence = sequenceResult.value ?? null;
+    }
 
     const { data, error } = await supabase
       .from('lessons')
-      .update({
-        title: title.trim(),
-        module_id: moduleId || null,
-        format: format || null,
-        duration: duration || null,
-        image_url: imageUrl || null,
-        url: externalUrl || null,
-        is_enhanced_only: Boolean(isEnhancedOnly),
-      })
+      .update(updates)
       .eq('id', lessonId)
       .select(SELECT_COLUMNS.join(', '))
       .maybeSingle();
@@ -176,22 +189,32 @@ export async function PATCH(request, context) {
       throw linkError;
     }
 
-    try {
-      const { error: deleteTagsError } = await supabase.from('lesson_tags').delete().eq('lesson_id', lessonId);
-      if (deleteTagsError) throw deleteTagsError;
+    let resolvedTags = sanitizedTags;
+    if (tagsProvided) {
+      try {
+        const { error: deleteTagsError } = await supabase.from('lesson_tags').delete().eq('lesson_id', lessonId);
+        if (deleteTagsError) throw deleteTagsError;
 
-      if (sanitizedTags.length > 0) {
-        const tagRows = sanitizedTags.map((tag) => ({
-          lesson_id: lessonId,
-          tag,
-        }));
+        if (sanitizedTags.length > 0) {
+          const tagRows = sanitizedTags.map((tag) => ({
+            lesson_id: lessonId,
+            tag,
+          }));
 
-        const { error: insertTagsError } = await supabase.from('lesson_tags').insert(tagRows);
-        if (insertTagsError) throw insertTagsError;
+          const { error: insertTagsError } = await supabase.from('lesson_tags').insert(tagRows);
+          if (insertTagsError) throw insertTagsError;
+        }
+      } catch (tagError) {
+        console.error('[api/admin/lessons] Failed to update lesson tags', tagError);
+        throw tagError;
       }
-    } catch (tagError) {
-      console.error('[api/admin/lessons] Failed to update lesson tags', tagError);
-      throw tagError;
+    } else {
+      try {
+        resolvedTags = await fetchTags(supabase, lessonId);
+      } catch (tagLoadError) {
+        console.error('[api/admin/lessons] Failed to load lesson tags after update', tagLoadError);
+        resolvedTags = [];
+      }
     }
 
     let presenters = [];
@@ -229,13 +252,13 @@ export async function PATCH(request, context) {
       }
     }
 
-    const lesson = normalizeLessonRow(data, presenters, sanitizedTags);
+    const lesson = normalizeLessonRow(data, presenters, Array.isArray(resolvedTags) ? resolvedTags : []);
 
     return NextResponse.json({
       lesson: {
         ...lesson,
         presenterIds: sanitizedPresenterIds,
-        tags: sanitizedTags,
+        tags: Array.isArray(resolvedTags) ? resolvedTags : [],
       },
     });
   } catch (error) {
@@ -257,6 +280,8 @@ export async function DELETE(request, context) {
     const supabase = createSupabaseServiceClient();
 
     try {
+      await supabase.from('lesson_progress').delete().eq('lesson_id', lessonId);
+      await supabase.from('favourites').delete().eq('lesson_id', lessonId);
       await supabase.from('lesson_presenters').delete().eq('lesson_id', lessonId);
       await supabase.from('lesson_tags').delete().eq('lesson_id', lessonId);
     } catch (cleanupError) {

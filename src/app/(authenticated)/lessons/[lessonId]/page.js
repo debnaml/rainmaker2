@@ -85,11 +85,13 @@ function ModuleProgressList({ lessons, currentLessonId }) {
         const content = (
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition ${circleClass}`}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${circleClass}`}
             >
               {circleInner}
             </span>
-            <span className={`text-sm ${isCurrent ? 'font-semibold text-primary' : 'text-textdark/80'}`}>
+            <span
+              className={`flex-1 text-sm leading-snug ${isCurrent ? 'font-semibold text-primary' : 'text-textdark/80'} break-words`}
+            >
               {lesson.title}
             </span>
           </div>
