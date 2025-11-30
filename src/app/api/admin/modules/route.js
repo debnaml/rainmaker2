@@ -1,6 +1,9 @@
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
+import { ALLOWED_MODULE_TYPES } from '/lib/modules/constants';
+
+const VALID_MODULE_TYPES = new Set(ALLOWED_MODULE_TYPES);
 
 export function normalizeModule(record) {
   if (!record) return null;
@@ -54,6 +57,18 @@ export async function POST(request) {
       sequenceValue = parsedSequence;
     }
 
+    const normalizedType =
+      typeof type === 'string' && type.trim() ? type.trim().toLowerCase() : null;
+
+    if (normalizedType && !VALID_MODULE_TYPES.has(normalizedType)) {
+      return NextResponse.json(
+        {
+          error: `Type must be one of: ${ALLOWED_MODULE_TYPES.join(', ')}.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = createSupabaseServiceClient();
 
     const moduleId = randomUUID();
@@ -63,7 +78,7 @@ export async function POST(request) {
       .insert({
         id: moduleId,
         title: title.trim(),
-        type: typeof type === 'string' && type.trim() ? type.trim() : null,
+        type: normalizedType,
         sequence: sequenceValue,
       })
       .select('id, title, type, sequence')

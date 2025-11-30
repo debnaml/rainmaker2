@@ -43,6 +43,7 @@ export default function CurrentProgressPage() {
   const { user, loading: authLoading } = useAuth();
   const [coreLessons, setCoreLessons] = useState([]);
   const [bitesizeLessons, setBitesizeLessons] = useState([]);
+  const [storiesLessons, setStoriesLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -54,6 +55,7 @@ export default function CurrentProgressPage() {
       if (!user) {
         setCoreLessons([]);
         setBitesizeLessons([]);
+        setStoriesLessons([]);
         setLoading(false);
         return;
       }
@@ -67,13 +69,15 @@ export default function CurrentProgressPage() {
           progressFor: user.id,
         });
 
-        const [coreResponse, bitesizeResponse] = await Promise.all([
+        const [coreResponse, bitesizeResponse, storiesResponse] = await Promise.all([
           fetch(`/api/lessons?${params.toString()}&moduleType=core`, { signal: controller.signal }),
           fetch(`/api/lessons?${params.toString()}&moduleType=bitesize`, { signal: controller.signal }),
+          fetch(`/api/lessons?${params.toString()}&moduleType=stories`, { signal: controller.signal }),
         ]);
 
         const corePayload = await coreResponse.json();
         const bitesizePayload = await bitesizeResponse.json();
+        const storiesPayload = await storiesResponse.json();
 
         if (!coreResponse.ok) {
           throw new Error(corePayload.error ?? 'Unable to load core lessons.');
@@ -83,10 +87,15 @@ export default function CurrentProgressPage() {
           throw new Error(bitesizePayload.error ?? 'Unable to load bitesize lessons.');
         }
 
+        if (!storiesResponse.ok) {
+          throw new Error(storiesPayload.error ?? 'Unable to load stories.');
+        }
+
         if (!isMounted) return;
 
         setCoreLessons(Array.isArray(corePayload.lessons) ? corePayload.lessons : []);
         setBitesizeLessons(Array.isArray(bitesizePayload.lessons) ? bitesizePayload.lessons : []);
+        setStoriesLessons(Array.isArray(storiesPayload.lessons) ? storiesPayload.lessons : []);
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Failed to load progress overview', err);
@@ -143,6 +152,15 @@ export default function CurrentProgressPage() {
     });
   }, [bitesizeLessons]);
 
+  const storiesSorted = useMemo(() => {
+    return [...storiesLessons].sort((a, b) => {
+      const seqA = a.sequence ?? 9999;
+      const seqB = b.sequence ?? 9999;
+      if (seqA !== seqB) return seqA - seqB;
+      return (a.title ?? '').localeCompare(b.title ?? '');
+    });
+  }, [storiesLessons]);
+
   const coreCompletion = useMemo(() => {
     if (!coreLessons.length) return 0;
     const completed = coreLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
@@ -155,7 +173,11 @@ export default function CurrentProgressPage() {
     return Math.round((completed / bitesizeLessons.length) * 100);
   }, [bitesizeLessons]);
 
-  const storiesCompletion = 0;
+  const storiesCompletion = useMemo(() => {
+    if (!storiesLessons.length) return 0;
+    const completed = storiesLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
+    return Math.round((completed / storiesLessons.length) * 100);
+  }, [storiesLessons]);
 
   const renderLessonItem = (lesson) => {
     const status = lesson.progress?.status ?? 'not_started';
@@ -163,7 +185,7 @@ export default function CurrentProgressPage() {
       <Link
         key={lesson.id ?? lesson.title}
         href={lesson.id ? `/lessons/${lesson.id}` : lesson.url ?? '#'}
-  className="flex items-center justify-between gap-2 py-2 text-sm text-textdark"
+        className="flex items-center justify-between gap-2 py-2 text-sm text-textdark"
       >
         <div className="flex flex-1 items-center gap-3">
           <LessonStatusBadge status={status} />
@@ -226,7 +248,7 @@ export default function CurrentProgressPage() {
                 </div>
               </section>
 
-              <section className="flex flex-col gap-4 rounded-md bg-[#cbeef3]/30 p-6 transition-shadow hover:shadow-md">
+              <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="text-2xl font-semibold text-primary">Bitesize</h2>
@@ -250,18 +272,19 @@ export default function CurrentProgressPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="text-2xl font-semibold text-primary">Stories</h2>
-                    <p className="text-xs uppercase tracking-wide text-textdark/50">Coming soon</p>
+                    <p className="text-xs uppercase tracking-wide text-textdark/50">
+                      {storiesLessons.length} stories
+                    </p>
                   </div>
-                  <ProgressDonut percent={storiesCompletion} />
+                  <ProgressDonut percent={storiesCompletion} color="#CBDD51" />
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-md border border-dashed border-primary/40 bg-white/60 p-4 text-sm text-textdark/70">
-                  <p className="font-medium text-primary">Stories tracker arriving soon</p>
-                  <p>
-                    We&apos;re building a new home for the stories content. Once the library is ready you&apos;ll see
-                    progress across chapters and narrative arcs here.
-                  </p>
-                  <p className="text-xs uppercase tracking-wide text-textdark/50">Stay tuned</p>
+                <div className="space-y-1.5">
+                  {storiesSorted.length === 0 ? (
+                    <p className="text-sm text-textdark/60">No stories available yet.</p>
+                  ) : (
+                    storiesSorted.map((lesson) => renderLessonItem(lesson))
+                  )}
                 </div>
               </section>
             </div>

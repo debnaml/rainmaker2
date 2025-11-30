@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { derivePresenterDisplayName } from '/lib/presenters';
+import { normalizeResourceRecord, sortResources } from '/lib/resources/normalizers';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 
 export const SELECT_COLUMNS = [
@@ -194,7 +195,8 @@ export async function POST(request) {
       }
     }
 
-    const lesson = normalizeLessonRow(data, presenters, sanitizedTags);
+    const resources = [];
+    const lesson = normalizeLessonRow(data, presenters, sanitizedTags, resources);
 
     return NextResponse.json({ lesson }, { status: 201 });
   } catch (error) {
@@ -227,7 +229,7 @@ export function sanitizePresenterIds(input) {
     : [];
 }
 
-export function normalizeLessonRow(row, presenters = [], tags = []) {
+export function normalizeLessonRow(row, presenters = [], tags = [], resources = []) {
   if (!row) return null;
   const { modules, ...rest } = row;
   let moduleRecord = null;
@@ -238,11 +240,24 @@ export function normalizeLessonRow(row, presenters = [], tags = []) {
     moduleRecord = modules;
   }
 
+  const normalizedResources = Array.isArray(resources)
+    ? resources
+        .map((item) => {
+          if (!item) return null;
+          if (typeof item === 'object' && 'type' in item && 'url' in item) {
+            return item;
+          }
+          return normalizeResourceRecord(item);
+        })
+        .filter(Boolean)
+    : [];
+
   return {
     ...rest,
     module: moduleRecord,
     tags,
     presenters,
+    resources: sortResources(normalizedResources),
   };
 }
 

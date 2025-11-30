@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { normalizeResourceRecord, sortResources } from '/lib/resources/normalizers';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 
 const ADMIN_ROLES = new Set(['admin', 'enhanced']);
@@ -126,6 +127,27 @@ export async function GET(request, { params }) {
       ? lesson.modules[0] ?? null
       : lesson.modules ?? null;
 
+    let resources = [];
+    try {
+      const { data: resourceRows, error: resourceError } = await supabase
+        .from('downloads')
+        .select(
+          'id, lesson_id, title, resource_type, file_url, external_url, storage_path, mime_type, file_size, sequence, created_at, updated_at'
+        )
+        .eq('lesson_id', lesson.id)
+        .order('sequence', { ascending: true, nullsFirst: true })
+        .order('title', { ascending: true });
+
+      if (resourceError) throw resourceError;
+
+      resources = Array.isArray(resourceRows)
+        ? sortResources(resourceRows.map((row) => normalizeResourceRecord(row)).filter(Boolean))
+        : [];
+    } catch (resourceError) {
+      console.error('[api/lessons/[lessonId]] Failed to load lesson resources', resourceError);
+      resources = [];
+    }
+
     const responsePayload = {
       lesson: {
         id: lesson.id,
@@ -151,7 +173,7 @@ export async function GET(request, { params }) {
           url: lesson.url,
           imageUrl: lesson.image_url,
         },
-        resources: [],
+        resources,
       },
       progress: progress
         ? {

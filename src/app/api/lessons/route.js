@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { derivePresenterDisplayName } from '/lib/presenters';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
+import { ALLOWED_MODULE_TYPES } from '/lib/modules/constants';
 
 const ADMIN_ROLES = new Set(['admin', 'enhanced']);
-const VALID_MODULE_TYPES = new Set(['core', 'bitesize']);
+const VALID_MODULE_TYPES = new Set(ALLOWED_MODULE_TYPES);
 
 export async function GET(request) {
 	try {

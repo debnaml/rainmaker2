@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '/lib/authContext';
+import { RESOURCE_TYPES } from '/lib/resources/constants';
 import SubNav from '~/components/SubNav';
 
 const CONTENT_SECTION_ITEMS = [
@@ -80,6 +81,34 @@ function parseSequenceInput(rawValue) {
   return { valid: true, value: parsed };
 }
 
+function sortResourceList(items = []) {
+  return [...items].sort((a, b) => {
+    const sequenceA = Number.isFinite(a?.sequence) ? a.sequence : Number.MAX_SAFE_INTEGER;
+    const sequenceB = Number.isFinite(b?.sequence) ? b.sequence : Number.MAX_SAFE_INTEGER;
+    if (sequenceA !== sequenceB) {
+      return sequenceA - sequenceB;
+    }
+    const titleA = (a?.title ?? '').toLowerCase();
+    const titleB = (b?.title ?? '').toLowerCase();
+    return titleA.localeCompare(titleB);
+  });
+}
+
+function createEmptyResourceForm(overrides = {}) {
+  return {
+    title: '',
+    type: 'file',
+    url: '',
+    sequence: '',
+    file: null,
+    ...overrides,
+  };
+}
+
+function isValidFileLike(value) {
+  return Boolean(value && typeof value === 'object' && typeof value.name === 'string');
+}
+
 export default function NewLessonPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -103,6 +132,15 @@ export default function NewLessonPage() {
   const [tagChips, setTagChips] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const tagKeyRef = useRef(0);
+
+  const [resources, setResources] = useState([]);
+  const [resourceForm, setResourceForm] = useState(() => createEmptyResourceForm());
+  const [resourceFormError, setResourceFormError] = useState(null);
+  const resourceFileInputRef = useRef(null);
+  const [resourceEditId, setResourceEditId] = useState(null);
+  const [resourceEditForm, setResourceEditForm] = useState(() => createEmptyResourceForm({ type: 'link' }));
+  const [resourceEditError, setResourceEditError] = useState(null);
+  const resourceEditFileInputRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -181,6 +219,227 @@ export default function NewLessonPage() {
   }, [loading, isAdmin]);
 
   const presenterOptions = useMemo(() => presenters, [presenters]);
+  const resourceTypeLabelMap = useMemo(() => new Map(RESOURCE_TYPES.map((entry) => [entry.value, entry.label])), []);
+
+  const resetResourceForm = (nextType) => {
+    setResourceForm(createEmptyResourceForm({ type: nextType ?? 'file' }));
+    setResourceFormError(null);
+    if (resourceFileInputRef.current) {
+      resourceFileInputRef.current.value = '';
+    }
+  };
+
+  const resetResourceEditForm = () => {
+    setResourceEditId(null);
+    setResourceEditForm(createEmptyResourceForm({ type: 'link' }));
+    setResourceEditError(null);
+    if (resourceEditFileInputRef.current) {
+      resourceEditFileInputRef.current.value = '';
+    }
+  };
+
+  const handleResourceTypeChange = (value) => {
+    setResourceForm((previous) => ({
+      ...previous,
+      type: value,
+      url: value === 'file' ? '' : (typeof previous.url === 'string' ? previous.url : ''),
+      file: null,
+    }));
+    if (resourceFileInputRef.current) {
+      resourceFileInputRef.current.value = '';
+    }
+    if (resourceFormError) {
+      setResourceFormError(null);
+    }
+  };
+
+  const handleResourceEditInputChange = (field, value) => {
+    setResourceEditForm((previous) => ({
+      ...previous,
+      [field]: field === 'url' || field === 'title' ? (value ?? '') : value,
+    }));
+    if (resourceEditError) {
+      setResourceEditError(null);
+    }
+  };
+
+  const handleResourceEditTypeChange = (value) => {
+    setResourceEditForm((previous) => ({
+      ...previous,
+      type: value,
+      url: value === 'file' ? '' : (typeof previous.url === 'string' ? previous.url : ''),
+      file: null,
+    }));
+    if (resourceEditFileInputRef.current) {
+      resourceEditFileInputRef.current.value = '';
+    }
+    if (resourceEditError) {
+      setResourceEditError(null);
+    }
+  };
+
+  const handleResourceInputChange = (field, value) => {
+    setResourceForm((previous) => ({
+      ...previous,
+      [field]: field === 'url' || field === 'title' ? (value ?? '') : value,
+    }));
+    if (resourceFormError) {
+      setResourceFormError(null);
+    }
+  };
+
+  const handleResourceFileChange = (event) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    setResourceForm((previous) => ({ ...previous, file: nextFile }));
+    if (resourceFormError) {
+      setResourceFormError(null);
+    }
+  };
+
+  const handleCreateResource = (event) => {
+    if (event) {
+      event.preventDefault();
+    }
+    setResourceFormError(null);
+
+    const trimmedTitle = resourceForm.title.trim();
+    if (!trimmedTitle) {
+      setResourceFormError('Title is required.');
+      return;
+    }
+
+    const sequenceResult = parseSequenceInput(resourceForm.sequence);
+    if (!sequenceResult.valid) {
+      setResourceFormError('Sequence must be a valid number.');
+      return;
+    }
+
+    if (resourceForm.type === 'file') {
+      if (!isValidFileLike(resourceForm.file)) {
+        setResourceFormError('Choose a file to upload.');
+        return;
+      }
+    } else {
+      const trimmedUrl = resourceForm.url.trim();
+      if (!trimmedUrl) {
+        setResourceFormError('Enter a valid URL for this resource.');
+        return;
+      }
+    }
+
+    const newResource = {
+      id: `resource-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title: trimmedTitle,
+      type: resourceForm.type,
+      sequence: sequenceResult.value,
+      url: resourceForm.type === 'file' ? null : resourceForm.url.trim(),
+      file: resourceForm.type === 'file' ? resourceForm.file : null,
+    };
+
+    setResources((previous) => sortResourceList([...(Array.isArray(previous) ? previous : []), newResource]));
+    resetResourceForm(resourceForm.type);
+  };
+
+  const handleResourceFormKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (submitting) return;
+      handleCreateResource();
+    }
+  };
+
+  const handleDeleteResource = (resourceId) => {
+    if (!resourceId) return;
+    const confirmed = window.confirm('Remove this resource?');
+    if (!confirmed) return;
+
+    setResources((previous) => (Array.isArray(previous) ? previous.filter((item) => item.id !== resourceId) : []));
+    if (resourceEditId === resourceId) {
+      resetResourceEditForm();
+    }
+  };
+
+  const handleBeginEditResource = (resource) => {
+    if (!resource) return;
+    setResourceEditId(resource.id);
+    setResourceEditForm({
+      title: resource.title ?? '',
+      type: resource.type ?? 'file',
+      url: resource.type === 'file' ? '' : resource.url ?? '',
+      sequence: resource.sequence !== null && resource.sequence !== undefined ? String(resource.sequence) : '',
+      file: null,
+    });
+    setResourceEditError(null);
+    if (resourceEditFileInputRef.current) {
+      resourceEditFileInputRef.current.value = '';
+    }
+  };
+
+  const handleCancelEditResource = () => {
+    resetResourceEditForm();
+  };
+
+  const handleEditFileChange = (event) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    setResourceEditForm((previous) => ({ ...previous, file: nextFile }));
+    if (resourceEditError) {
+      setResourceEditError(null);
+    }
+  };
+
+  const handleSaveResource = () => {
+    if (!resourceEditId) return;
+    const existingResource = resources.find((item) => item.id === resourceEditId);
+    if (!existingResource) {
+      setResourceEditError('Resource not found.');
+      return;
+    }
+
+    const trimmedTitle = resourceEditForm.title.trim();
+    if (!trimmedTitle) {
+      setResourceEditError('Title is required.');
+      return;
+    }
+
+    const sequenceResult = parseSequenceInput(resourceEditForm.sequence);
+    if (!sequenceResult.valid) {
+      setResourceEditError('Sequence must be a valid number.');
+      return;
+    }
+
+    const nextType = resourceEditForm.type;
+    let nextFile = null;
+    let nextUrl = null;
+
+    if (nextType === 'file') {
+      nextFile = resourceEditForm.file ?? existingResource.file ?? null;
+      if (!isValidFileLike(nextFile)) {
+        setResourceEditError('Choose a file to upload.');
+        return;
+      }
+    } else {
+      const trimmedUrl = resourceEditForm.url.trim();
+      if (!trimmedUrl) {
+        setResourceEditError('Enter a valid URL for this resource.');
+        return;
+      }
+      nextUrl = trimmedUrl;
+    }
+
+    const updatedResource = {
+      ...existingResource,
+      title: trimmedTitle,
+      type: nextType,
+      sequence: sequenceResult.value,
+      url: nextType === 'file' ? null : nextUrl,
+      file: nextType === 'file' ? nextFile : null,
+    };
+
+    setResources((previous) =>
+      sortResourceList((Array.isArray(previous) ? previous : []).map((item) => (item.id === resourceEditId ? updatedResource : item)))
+    );
+    resetResourceEditForm();
+  };
 
   const handleAddTag = (rawValue) => {
     const candidates = tokenizeTagInput(rawValue);
@@ -304,7 +563,57 @@ export default function NewLessonPage() {
         throw new Error(responseBody.error ?? 'Unable to create lesson.');
       }
 
-      router.replace('/admin/content?view=lessons');
+      const createdLessonId = responseBody?.lesson?.id;
+      if (!createdLessonId) {
+        throw new Error('Lesson created but an identifier was not returned.');
+      }
+
+      let resourceUploadError = null;
+
+      const pendingResources = Array.isArray(resources) ? resources : [];
+      if (pendingResources.length > 0) {
+        try {
+          for (const resource of pendingResources) {
+            const formData = new FormData();
+            formData.append('title', resource.title);
+            formData.append('type', resource.type);
+            const sequenceValue = resource.sequence === null || resource.sequence === undefined ? '' : String(resource.sequence);
+            formData.append('sequence', sequenceValue);
+
+            if (resource.type === 'file') {
+              if (!isValidFileLike(resource.file)) {
+                throw new Error(`File missing for resource "${resource.title}".`);
+              }
+              formData.append('file', resource.file, resource.file.name ?? 'upload');
+            } else {
+              const urlValue = typeof resource.url === 'string' ? resource.url.trim() : '';
+              if (!urlValue) {
+                throw new Error(`URL missing for resource "${resource.title}".`);
+              }
+              formData.append('externalUrl', urlValue);
+            }
+
+            const resourceResponse = await fetch(`/api/admin/lessons/${createdLessonId}/resources`, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!resourceResponse.ok) {
+              const payload = await resourceResponse.json().catch(() => ({}));
+              throw new Error(payload.error ?? `Unable to add resource "${resource.title}".`);
+            }
+          }
+        } catch (resourceError) {
+          resourceUploadError = resourceError;
+          console.error('Lesson created but failed to attach resources', resourceError);
+        }
+      }
+
+      if (resourceUploadError) {
+        window.alert('Lesson created, but some resources could not be uploaded. You can add them from the edit page.');
+      }
+
+      router.replace(resourceUploadError ? `/admin/content/${createdLessonId}/edit` : '/admin/content?view=lessons');
       router.refresh();
     } catch (error) {
       console.error('Failed to create lesson', error);
@@ -550,6 +859,256 @@ export default function NewLessonPage() {
                 </datalist>
                 <p className="mt-2 text-xs text-textdark/60">Press Enter or comma to add the current entry. Up to 25 tags.</p>
               </div>
+
+              <section className="space-y-4 rounded-md border border-slate-200 p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-primary">Resources</h3>
+                    <p className="text-xs text-textdark/60">
+                      Add supporting files or links now. Files upload after the lesson is created (50MB max).
+                    </p>
+                  </div>
+                </div>
+
+                {resources.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-textdark/60">
+                    No resources added yet.
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {resources.map((resource) => {
+                      const typeLabel = resourceTypeLabelMap.get(resource.type) ?? resource.type;
+                      const isEditing = resourceEditId === resource.id;
+
+                      return (
+                        <li key={resource.id} className="rounded-md border border-slate-200 bg-white p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="break-words text-sm font-semibold text-primary">{resource.title}</span>
+                                <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                  {typeLabel}
+                                </span>
+                                {resource.sequence !== null && resource.sequence !== undefined ? (
+                                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-textdark/60">
+                                    Seq {resource.sequence}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {resource.type === 'file' ? (
+                                <span className="text-xs text-textdark/60">{resource.file?.name ?? 'Pending file upload'}</span>
+                              ) : (
+                                <span className="break-words text-xs text-primary">{resource.url}</span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveResource}
+                                    disabled={submitting}
+                                    className="inline-flex items-center justify-center rounded-full bg-action px-3 py-1 text-xs font-semibold text-white transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-70"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelEditResource}
+                                    disabled={submitting}
+                                    className="inline-flex items-center justify-center rounded-full border border-primary px-3 py-1 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBeginEditResource(resource)}
+                                    disabled={submitting}
+                                    className="inline-flex items-center justify-center rounded-full border border-primary px-3 py-1 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteResource(resource.id)}
+                                    disabled={submitting}
+                                    className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {isEditing ? (
+                            <div className="mt-3 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                              {resourceEditError ? (
+                                <div className="rounded-md border border-red-200 bg-red-100 p-2 text-xs text-red-700">{resourceEditError}</div>
+                              ) : null}
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <label className="flex flex-col text-xs font-semibold text-primary">
+                                  Title
+                                  <input
+                                    type="text"
+                                    value={resourceEditForm.title}
+                                    onChange={(event) => handleResourceEditInputChange('title', event.target.value)}
+                                    disabled={submitting}
+                                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </label>
+                                <label className="flex flex-col text-xs font-semibold text-primary">
+                                  Sequence
+                                  <input
+                                    type="number"
+                                    value={resourceEditForm.sequence}
+                                    onChange={(event) => handleResourceEditInputChange('sequence', event.target.value)}
+                                    disabled={submitting}
+                                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </label>
+                                <label className="flex flex-col text-xs font-semibold text-primary">
+                                  Type
+                                  <select
+                                    value={resourceEditForm.type}
+                                    onChange={(event) => handleResourceEditTypeChange(event.target.value)}
+                                    disabled={submitting}
+                                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  >
+                                    {RESOURCE_TYPES.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                {resourceEditForm.type === 'file' ? (
+                                  <label key="resource-edit-file" className="flex flex-col text-xs font-semibold text-primary">
+                                    Upload file
+                                    <input
+                                      key="resource-edit-file-input"
+                                      type="file"
+                                      onChange={handleEditFileChange}
+                                      ref={resourceEditFileInputRef}
+                                      disabled={submitting}
+                                      className="mt-1 w-full text-sm text-textdark"
+                                    />
+                                    <span className="mt-1 text-[11px] font-normal text-textdark/60">Required when saving. Max 50MB.</span>
+                                  </label>
+                                ) : (
+                                  <label key="resource-edit-url" className="flex flex-col text-xs font-semibold text-primary md:col-span-2">
+                                    Resource URL
+                                    <input
+                                      key="resource-edit-url-input"
+                                      type="url"
+                                      value={resourceEditForm.url}
+                                      onChange={(event) => handleResourceEditInputChange('url', event.target.value)}
+                                      disabled={submitting}
+                                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                      placeholder="https://"
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                <div
+                  className="space-y-3 rounded-md border border-dashed border-slate-200 bg-slate-50 p-4"
+                  role="group"
+                  onKeyDown={handleResourceFormKeyDown}
+                >
+                  <h4 className="text-sm font-semibold text-primary">Add resource</h4>
+                  {resourceFormError ? (
+                    <div className="rounded-md border border-red-200 bg-red-100 p-2 text-xs text-red-700">{resourceFormError}</div>
+                  ) : null}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="flex flex-col text-xs font-semibold text-primary">
+                      Title *
+                      <input
+                        type="text"
+                        value={resourceForm.title}
+                        onChange={(event) => handleResourceInputChange('title', event.target.value)}
+                        disabled={submitting}
+                        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="e.g. Participant workbook"
+                      />
+                    </label>
+                    <label className="flex flex-col text-xs font-semibold text-primary">
+                      Sequence
+                      <input
+                        type="number"
+                        value={resourceForm.sequence}
+                        onChange={(event) => handleResourceInputChange('sequence', event.target.value)}
+                        disabled={submitting}
+                        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Optional order"
+                      />
+                    </label>
+                    <label className="flex flex-col text-xs font-semibold text-primary">
+                      Type
+                      <select
+                        value={resourceForm.type}
+                        onChange={(event) => handleResourceTypeChange(event.target.value)}
+                        disabled={submitting}
+                        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      >
+                        {RESOURCE_TYPES.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {resourceForm.type === 'file' ? (
+                      <label key="resource-create-file" className="flex flex-col text-xs font-semibold text-primary">
+                        Upload file *
+                        <input
+                          key="resource-create-file-input"
+                          type="file"
+                          onChange={handleResourceFileChange}
+                          ref={resourceFileInputRef}
+                          disabled={submitting}
+                          className="mt-1 w-full text-sm text-textdark"
+                        />
+                        <span className="mt-1 text-[11px] font-normal text-textdark/60">Max 50MB. PDF, PPT, DOC, XLS supported.</span>
+                      </label>
+                    ) : (
+                      <label key="resource-create-url" className="flex flex-col text-xs font-semibold text-primary md:col-span-2">
+                        Resource URL *
+                        <input
+                          key="resource-create-url-input"
+                          type="url"
+                          value={resourceForm.url}
+                          onChange={(event) => handleResourceInputChange('url', event.target.value)}
+                          disabled={submitting}
+                          className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          placeholder="https://"
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCreateResource}
+                      disabled={submitting}
+                      className="inline-flex items-center justify-center rounded-full bg-action px-4 py-2 text-xs font-semibold text-white transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      Add resource
+                    </button>
+                  </div>
+                </div>
+              </section>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Link

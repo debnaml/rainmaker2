@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '/lib/authContext';
+import { ALLOWED_MODULE_TYPES } from '/lib/modules/constants';
 import SubNav from '~/components/SubNav';
 
 const CONTENT_SECTION_ITEMS = [
@@ -72,6 +73,10 @@ export default function AdminContentPage() {
   const [editError, setEditError] = useState(null);
   const [deleteSubmittingId, setDeleteSubmittingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
+  const allowedModuleTypesLabel = useMemo(
+    () => ALLOWED_MODULE_TYPES.join(', '),
+    []
+  );
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -397,9 +402,15 @@ export default function AdminContentPage() {
       sequenceValue = parsedSequence;
     }
 
+    const normalizedType = createType.trim() ? createType.trim().toLowerCase() : null;
+    if (normalizedType && !ALLOWED_MODULE_TYPES.includes(normalizedType)) {
+      setCreateError(`Type must be one of: ${allowedModuleTypesLabel}.`);
+      return;
+    }
+
     const payload = {
       title: createTitle.trim(),
-      type: createType.trim() ? createType.trim() : null,
+      type: normalizedType,
       sequence: sequenceValue,
     };
 
@@ -470,9 +481,15 @@ export default function AdminContentPage() {
       sequenceValue = parsedSequence;
     }
 
+    const normalizedType = editForm.type.trim() ? editForm.type.trim().toLowerCase() : null;
+    if (normalizedType && !ALLOWED_MODULE_TYPES.includes(normalizedType)) {
+      setEditError(`Type must be one of: ${allowedModuleTypesLabel}.`);
+      return;
+    }
+
     const payload = {
       title: editForm.title.trim(),
-      type: editForm.type.trim() ? editForm.type.trim() : null,
+      type: normalizedType,
       sequence: sequenceValue,
     };
 
@@ -830,9 +847,10 @@ export default function AdminContentPage() {
                             onChange={(event) => setCreateType(event.target.value)}
                             list={moduleTypeOptions.length ? MODULE_TYPE_DATALIST_ID : undefined}
                             className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            placeholder="e.g. Core, Bitesize"
+                            placeholder="e.g. core, bitesize"
                             disabled={createSubmitting}
                           />
+                          <span className="mt-1 block text-xs text-textdark/60">Allowed types: {allowedModuleTypesLabel}.</span>
                         </label>
                         <label className="flex flex-col text-sm font-medium text-primary">
                           Sequence
@@ -933,6 +951,11 @@ export default function AdminContentPage() {
                                   ) : (
                                     module.type ? module.type : <span className="text-xs text-textdark/50">—</span>
                                   )}
+                                  {isEditing ? (
+                                    <span className="mt-1 block text-xs text-textdark/60">
+                                      Allowed types: {allowedModuleTypesLabel}.
+                                    </span>
+                                  ) : null}
                                 </td>
                                 <td className="px-4 py-3">
                                   {isEditing ? (

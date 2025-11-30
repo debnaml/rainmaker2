@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
+import { ALLOWED_MODULE_TYPES } from '/lib/modules/constants';
 import { normalizeModule } from '../route';
+
+const VALID_MODULE_TYPES = new Set(ALLOWED_MODULE_TYPES);
 
 function parseSequence(sequence) {
   if (sequence === undefined) return undefined;
@@ -36,7 +39,19 @@ export async function PATCH(request, context) {
     }
 
     if (type !== undefined) {
-      updates.type = typeof type === 'string' && type.trim() ? type.trim() : null;
+      const normalizedType =
+        typeof type === 'string' && type.trim() ? type.trim().toLowerCase() : null;
+
+      if (normalizedType && !VALID_MODULE_TYPES.has(normalizedType)) {
+        return NextResponse.json(
+          {
+            error: `Type must be one of: ${ALLOWED_MODULE_TYPES.join(', ')}.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      updates.type = normalizedType;
     }
 
     if (sequence !== undefined) {

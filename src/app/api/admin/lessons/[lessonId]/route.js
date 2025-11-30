@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { derivePresenterDisplayName } from '/lib/presenters';
+import { selectResourceCollection } from '/lib/resources/db';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 import { normalizeLessonRow, parseSequenceValue, sanitizePresenterIds, sanitizeTags, SELECT_COLUMNS } from '../route';
 
@@ -88,13 +89,16 @@ export async function GET(request, context) {
     const presenters = await loadPresentersByIds(supabase, sanitizedPresenterIds, orderMap);
 
     const tags = await fetchTags(supabase, lessonId);
-    const lesson = normalizeLessonRow(lessonRecord, presenters, tags);
+    const { resources, schemaOutdated } = await selectResourceCollection(supabase, (query) => query.eq('lesson_id', lessonId));
+
+    const lesson = normalizeLessonRow(lessonRecord, presenters, tags, resources);
 
     return NextResponse.json({
       lesson: {
         ...lesson,
         presenterIds: sanitizedPresenterIds,
         tags,
+        resourcesSchemaOutdated: schemaOutdated,
       },
     });
   } catch (error) {
@@ -252,13 +256,24 @@ export async function PATCH(request, context) {
       }
     }
 
-    const lesson = normalizeLessonRow(data, presenters, Array.isArray(resolvedTags) ? resolvedTags : []);
+    let resources = [];
+    let resourcesSchemaOutdated = false;
+    try {
+      const result = await selectResourceCollection(supabase, (query) => query.eq('lesson_id', lessonId));
+      resources = result.resources;
+      resourcesSchemaOutdated = result.schemaOutdated;
+    } catch (resourceError) {
+      console.error('[api/admin/lessons] Failed to load lesson resources after update', resourceError);
+    }
+
+    const lesson = normalizeLessonRow(data, presenters, Array.isArray(resolvedTags) ? resolvedTags : [], resources);
 
     return NextResponse.json({
       lesson: {
         ...lesson,
         presenterIds: sanitizedPresenterIds,
         tags: Array.isArray(resolvedTags) ? resolvedTags : [],
+        resourcesSchemaOutdated,
       },
     });
   } catch (error) {
