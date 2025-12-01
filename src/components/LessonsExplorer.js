@@ -65,21 +65,33 @@ function resolveLessonTone(lesson) {
   return 'default';
 }
 
-function getLessonCardToneClasses(lesson) {
-  const tone = resolveLessonTone(lesson);
+const TONE_STYLES = {
+  facilitated: {
+    buttonStart: '#51318F',
+    buttonEnd: '#6B48BF',
+  },
+  teamsWorkshop: {
+    buttonStart: '#0097A9',
+    buttonEnd: '#00B7C8',
+  },
+  flipsnack: {
+    buttonStart: '#4A90E2',
+    buttonEnd: '#7CC4FF',
+  },
+  async: {
+    buttonStart: '#8BAF00',
+    buttonEnd: '#C4D600',
+  },
+  default: {
+    buttonStart: '#4B5563',
+    buttonEnd: '#6B7280',
+  },
+};
 
-  switch (tone) {
-    case 'facilitated':
-      return 'border-2 border-[#8FB6FF]';
-    case 'teamsWorkshop':
-      return 'border-2 border-[#C2B5FF]';
-    case 'flipsnack':
-      return 'border-2 border-[#7DDAC6]';
-    case 'async':
-      return 'border-2 border-[#F6C580]';
-    default:
-      return 'border border-[#E6E6E6]';
-  }
+function getLessonToneStyles(lesson) {
+  const tone = resolveLessonTone(lesson);
+  const styles = TONE_STYLES[tone] ?? TONE_STYLES.default;
+  return { tone, ...styles };
 }
 
 export default function LessonsExplorer({
@@ -279,13 +291,50 @@ export default function LessonsExplorer({
                         }
                       }
 
+                      const { buttonStart, buttonEnd } = getLessonToneStyles(lesson);
+
+                      const buttonStyle = {
+                        background: `linear-gradient(135deg, ${buttonStart} 0%, ${buttonEnd} 100%)`,
+                        color: '#FFFFFF',
+                      };
+                      const buttonClasses =
+                        'inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-sm font-semibold transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white';
+
+                      const viewLessonButton = (() => {
+                        if (id) {
+                          return (
+                            <Link href={`/lessons/${id}`} className={buttonClasses} style={buttonStyle}>
+                              View lesson
+                              <span aria-hidden="true">→</span>
+                            </Link>
+                          );
+                        }
+
+                        if (url) {
+                          return (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={buttonClasses}
+                              style={buttonStyle}
+                            >
+                              View lesson
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          );
+                        }
+
+                        return null;
+                      })();
+
                       return (
                         <article
                           key={id ?? `${displayTitle}-${sequence ?? ''}`}
-                          className={`flex h-full flex-col overflow-hidden rounded-lg bg-white transition-shadow hover:shadow-md ${getLessonCardToneClasses(lesson)}`}
+                          className="flex h-full flex-col overflow-hidden rounded-lg border border-[#E6E6E6] bg-white transition-shadow hover:shadow-md"
                         >
-                          {imageUrl ? (
-                            <div className="relative h-36 w-full">
+                          <div className="relative h-36 w-full bg-[#F5F5F5]">
+                            {imageUrl ? (
                               <Image
                                 src={imageUrl}
                                 alt=""
@@ -293,8 +342,8 @@ export default function LessonsExplorer({
                                 sizes="(max-width: 768px) 100vw, 50vw"
                                 className="object-cover"
                               />
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
 
                           <div className="flex flex-1 flex-col gap-4 p-6">
                             <div className="flex items-start justify-between gap-3">
@@ -340,25 +389,7 @@ export default function LessonsExplorer({
                               <span className="text-xs text-textdark/50">Created {createdLabel}</span>
                             </div>
 
-                            {id ? (
-                              <Link
-                                href={`/lessons/${id}`}
-                                className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-action"
-                              >
-                                View lesson
-                                <span aria-hidden="true">→</span>
-                              </Link>
-                            ) : url ? (
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-action"
-                              >
-                                View lesson
-                                <span aria-hidden="true">↗</span>
-                              </a>
-                            ) : null}
+                            {viewLessonButton}
                           </div>
                         </article>
                       );
