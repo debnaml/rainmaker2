@@ -115,7 +115,7 @@ function ModuleProgressList({ lessons, currentLessonId }) {
   );
 }
 
-function ResourcesList({ resources }) {
+function ResourcesList({ resources, onOpenFlipsnack }) {
   if (!Array.isArray(resources) || resources.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-primary/30 bg-white/50 p-4 text-sm text-textdark/60">
@@ -126,23 +126,114 @@ function ResourcesList({ resources }) {
 
   return (
     <ul className="space-y-3">
-      {resources.map((resource) => (
-        <li
-          key={resource.id ?? resource.url ?? resource.title}
-          className="rounded-lg border border-[#D9D9D9] bg-white p-3 text-sm"
-        >
-          <a
-            href={resource.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-primary hover:text-action"
-          >
-            {resource.title}
-            <span aria-hidden="true">↗</span>
-          </a>
-        </li>
-      ))}
+      {resources.map((resource) => {
+        const key = resource.id ?? resource.url ?? resource.title;
+        const isFlipsnack = resource.type === 'flipsnack';
+        const handleClick = () => {
+          if (isFlipsnack && typeof onOpenFlipsnack === 'function') {
+            onOpenFlipsnack(resource);
+          }
+        };
+
+        if (isFlipsnack) {
+          return (
+            <li key={key} className="rounded-lg border border-[#D9D9D9] bg-white p-3 text-sm">
+              <button
+                type="button"
+                onClick={handleClick}
+                className="inline-flex items-center gap-2 text-primary transition hover:text-action"
+              >
+                {resource.title}
+                <span aria-hidden="true">▶</span>
+                <span className="sr-only">Open Flipsnack viewer</span>
+              </button>
+            </li>
+          );
+        }
+
+        return (
+          <li key={key} className="rounded-lg border border-[#D9D9D9] bg-white p-3 text-sm">
+            <a
+              href={resource.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary hover:text-action"
+            >
+              {resource.title}
+              <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+function FlipsnackLightbox({ resource, onClose }) {
+  const isOpen = Boolean(resource?.url);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    let previousOverflow;
+    if (typeof document !== 'undefined') {
+      previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = previousOverflow ?? '';
+      }
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const handleBackdropClick = () => {
+    onClose?.();
+  };
+
+  const stopPropagation = (event) => {
+    event.stopPropagation();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={resource.title ?? 'Flipsnack preview'}
+      onClick={handleBackdropClick}
+    >
+      <div className="relative h-[80vh] w-[90vw] max-w-5xl" onClick={stopPropagation}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -top-12 right-0 rounded-full border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+        >
+          Close
+        </button>
+        <div className="h-full w-full overflow-hidden rounded-lg border border-white/20 bg-black shadow-2xl">
+          <iframe
+            src={resource.url}
+            title={resource.title ?? 'Flipsnack resource'}
+            className="h-full w-full"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -233,6 +324,7 @@ export default function LessonDetailPage() {
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [progressBusy, setProgressBusy] = useState(false);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const [activeFlipsnack, setActiveFlipsnack] = useState(null);
 
   useEffect(() => {
     if (!lessonId) return;
@@ -370,6 +462,15 @@ export default function LessonDetailPage() {
     } finally {
       setFavouriteBusy(false);
     }
+  };
+
+  const handleOpenFlipsnack = (resource) => {
+    if (!resource?.url) return;
+    setActiveFlipsnack(resource);
+  };
+
+  const handleCloseFlipsnack = () => {
+    setActiveFlipsnack(null);
   };
 
   if (!lessonId) {
@@ -522,7 +623,7 @@ export default function LessonDetailPage() {
               <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
                 <h2 className="text-lg font-semibold text-primary">Resources</h2>
                 <div className="mt-4">
-                  <ResourcesList resources={lesson.resources} />
+                  <ResourcesList resources={lesson.resources} onOpenFlipsnack={handleOpenFlipsnack} />
                 </div>
               </div>
 
@@ -539,6 +640,7 @@ export default function LessonDetailPage() {
           </div>
         </div>
       </main>
+      <FlipsnackLightbox resource={activeFlipsnack} onClose={handleCloseFlipsnack} />
     </div>
   );
 }
