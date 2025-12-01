@@ -43,18 +43,24 @@ function buildLessonsQuery({ role, moduleType, favouritesFor }) {
 }
 
 function resolveLessonTone(lesson) {
-  const formatValue = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
-  const moduleTypeValue = typeof lesson?.module?.type === 'string' ? lesson.module.type.toLowerCase() : '';
+  const formatValueRaw = typeof lesson?.format === 'string' ? lesson.format : '';
+  const formatValue = formatValueRaw.trim().toUpperCase();
 
-  const candidates = [formatValue, moduleTypeValue].filter(Boolean);
+  if (formatValue.includes('F2F') || formatValue === 'WORKSHOP' || formatValue.includes('LIVE WEBINAR')) {
+    return 'facilitated';
+  }
 
-  const matches = (needle) => candidates.some((value) => value.includes(needle));
+  if (formatValue.includes('TEAMS WORKSHOP')) {
+    return 'teamsWorkshop';
+  }
 
-  if (matches('core')) return 'core';
-  if (matches('bite')) return 'bitesize';
-  if (matches('story')) return 'stories';
-  if (matches('live')) return 'live';
-  if (matches('f2f')) return 'f2f';
+  if (formatValue.includes('FLIPSNACK')) {
+    return 'flipsnack';
+  }
+
+  if (formatValue.includes('PODCAST') || formatValue.includes('PRE-RECORDED WEBINAR')) {
+    return 'async';
+  }
 
   return 'default';
 }
@@ -63,18 +69,16 @@ function getLessonCardToneClasses(lesson) {
   const tone = resolveLessonTone(lesson);
 
   switch (tone) {
-    case 'core':
-      return 'bg-[#EAF3FF] border border-[#CDE0FF]';
-    case 'bitesize':
-      return 'bg-[#FFF5E8] border border-[#FFE1BE]';
-    case 'stories':
-      return 'bg-[#F7EEFF] border border-[#E2D1FF]';
-    case 'live':
-      return 'bg-[#E8FBF4] border border-[#C5F2E2]';
-    case 'f2f':
-      return 'bg-[#F2F5F9] border border-[#D9E2ED]';
+    case 'facilitated':
+      return 'border-2 border-[#8FB6FF]';
+    case 'teamsWorkshop':
+      return 'border-2 border-[#C2B5FF]';
+    case 'flipsnack':
+      return 'border-2 border-[#7DDAC6]';
+    case 'async':
+      return 'border-2 border-[#F6C580]';
     default:
-      return 'bg-white border border-[#E6E6E6]';
+      return 'border border-[#E6E6E6]';
   }
 }
 
@@ -278,7 +282,7 @@ export default function LessonsExplorer({
                       return (
                         <article
                           key={id ?? `${displayTitle}-${sequence ?? ''}`}
-                          className={`flex h-full flex-col overflow-hidden rounded-lg transition-shadow hover:shadow-md ${getLessonCardToneClasses(lesson)}`}
+                          className={`flex h-full flex-col overflow-hidden rounded-lg bg-white transition-shadow hover:shadow-md ${getLessonCardToneClasses(lesson)}`}
                         >
                           {imageUrl ? (
                             <div className="relative h-36 w-full">
