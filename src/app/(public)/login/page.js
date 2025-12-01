@@ -86,7 +86,10 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-purplebg">
+    <main
+      className="flex min-h-screen items-center justify-center bg-purplebg bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: 'url(/images/rm-bg.jpg)' }}
+    >
       <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
         <h1 className="text-2xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
           Rainmaker Login

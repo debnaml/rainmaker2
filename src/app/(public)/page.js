@@ -2,7 +2,10 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-purplebg p-6 text-textdark">
+    <main
+      className="flex min-h-screen items-center justify-center bg-purplebg bg-cover bg-center bg-no-repeat p-6 text-textdark"
+      style={{ backgroundImage: 'url(/images/rm-bg.jpg)' }}
+    >
       <section className="mx-auto w-full max-w-3xl rounded-3xl bg-white p-10 shadow-xl">
         <header className="space-y-4">
           <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
