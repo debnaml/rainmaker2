@@ -10,6 +10,7 @@ const SUB_NAV_ITEMS = [
   { label: 'All Lessons', href: '/lessons' },
   { label: 'Core Lessons', href: '/lessons/core' },
   { label: 'Bitesize Lessons', href: '/lessons/bitesize' },
+  { label: 'Stories', href: '/stories' },
   { label: 'Favourite Lessons', href: '/lessons/favourites' },
 ];
 
