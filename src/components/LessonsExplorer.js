@@ -298,14 +298,13 @@ export default function LessonsExplorer({
                         color: '#FFFFFF',
                       };
                       const buttonClasses =
-                        'inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-sm font-semibold transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white';
+                        'inline-flex items-center self-start rounded-full px-4 py-2 text-sm font-semibold transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white';
 
                       const viewLessonButton = (() => {
                         if (id) {
                           return (
                             <Link href={`/lessons/${id}`} className={buttonClasses} style={buttonStyle}>
                               View lesson
-                              <span aria-hidden="true">→</span>
                             </Link>
                           );
                         }
@@ -320,7 +319,6 @@ export default function LessonsExplorer({
                               style={buttonStyle}
                             >
                               View lesson
-                              <span aria-hidden="true">↗</span>
                             </a>
                           );
                         }
