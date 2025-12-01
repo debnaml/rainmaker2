@@ -23,6 +23,18 @@ function normalizeModuleType(value) {
   return value.toLowerCase();
 }
 
+function isCoreOrBitesizeLesson(lesson) {
+  const moduleType = normalizeModuleType(lesson?.module?.type);
+  if (moduleType === 'core' || moduleType === 'bitesize') return true;
+
+  if (!moduleType) {
+    const format = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
+    if (format.includes('core') || format.includes('bite')) return true;
+  }
+
+  return false;
+}
+
 function sortLessons(lessons) {
   return [...lessons].sort((a, b) => {
     const moduleSeqA = a?.module?.sequence ?? 9999;
@@ -182,7 +194,8 @@ export default function DashboardPage() {
           setNextLesson(nextBitesizeLesson ?? null);
         }
 
-        const newest = sortByNewestLessons(lessons).slice(0, 4);
+        const newestSource = lessons.filter(isCoreOrBitesizeLesson);
+        const newest = sortByNewestLessons(newestSource).slice(0, 4);
         setRecentLessons(newest);
       } catch (error) {
         if (error.name === 'AbortError') return;
