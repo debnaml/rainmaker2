@@ -598,12 +598,6 @@ export default function AdminContentPage() {
                     <div key={index} className="h-12 w-full animate-pulse rounded-md bg-purplebg/60" />
                   ))}
                 </div>
-              ) : lessonRows.length === 0 ? (
-                <div className="rounded-md border border-dashed border-primary/30 bg-white/60 p-6 text-sm text-textdark/70">
-                  {hasLessonFilters
-                    ? 'No lessons match the current filters.'
-                    : 'No lessons found yet. Create a lesson to get started.'}
-                </div>
               ) : (
                 <>
                   <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -710,76 +704,84 @@ export default function AdminContentPage() {
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-md border border-[#E4E2EF]">
-                  <table className="min-w-full divide-y divide-[#E4E2EF] text-sm">
-                    <thead className="bg-[#F8F7FC] text-xs font-semibold uppercase tracking-wide text-textdark/60">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left">Title</th>
-                        <th scope="col" className="px-4 py-3 text-left">Module</th>
-                        <th scope="col" className="px-4 py-3 text-left">Format</th>
-                        <th scope="col" className="px-4 py-3 text-left">Duration</th>
-                        <th scope="col" className="px-4 py-3 text-left">Tags</th>
-                        <th scope="col" className="px-4 py-3 text-left">Enhanced</th>
-                        <th scope="col" className="px-4 py-3 text-left">Created</th>
-                        <th scope="col" className="px-4 py-3 text-left">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E4E2EF] bg-white text-textdark/80">
-                      {lessonRows.map((lesson) => {
-                        const isDeletingLesson = lessonDeleteSubmittingId === lesson.id;
+                  {lessonRows.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-primary/30 bg-white/60 p-6 text-sm text-textdark/70">
+                      {hasLessonFilters
+                        ? 'No lessons match the current filters.'
+                        : 'No lessons found yet. Create a lesson to get started.'}
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-md border border-[#E4E2EF]">
+                      <table className="min-w-full divide-y divide-[#E4E2EF] text-sm">
+                        <thead className="bg-[#F8F7FC] text-xs font-semibold uppercase tracking-wide text-textdark/60">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left">Title</th>
+                            <th scope="col" className="px-4 py-3 text-left">Module</th>
+                            <th scope="col" className="px-4 py-3 text-left">Format</th>
+                            <th scope="col" className="px-4 py-3 text-left">Duration</th>
+                            <th scope="col" className="px-4 py-3 text-left">Tags</th>
+                            <th scope="col" className="px-4 py-3 text-left">Enhanced</th>
+                            <th scope="col" className="px-4 py-3 text-left">Created</th>
+                            <th scope="col" className="px-4 py-3 text-left">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E4E2EF] bg-white text-textdark/80">
+                          {lessonRows.map((lesson) => {
+                            const isDeletingLesson = lessonDeleteSubmittingId === lesson.id;
 
-                        return (
-                          <tr key={lesson.id} className="hover:bg-primary/5">
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-primary">{lesson.title}</span>
-                              <span className="text-xs uppercase tracking-wide text-textdark/50">{lesson.moduleType}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">{lesson.moduleTitle}</td>
-                          <td className="px-4 py-3">{lesson.format}</td>
-                          <td className="px-4 py-3">{lesson.duration}</td>
-                          <td className="px-4 py-3">
-                            {lesson.tags.length ? (
-                              <div className="flex flex-wrap gap-2">
-                                {lesson.tags.map((tag) => (
-                                  <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-textdark/50">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">{lesson.enhanced}</td>
-                          <td className="px-4 py-3">{lesson.createdAt}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleEditLesson(lesson.id)}
-                                className="inline-flex items-center justify-center rounded-full border border-primary px-3 py-1 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white"
-                                disabled={isDeletingLesson}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteLesson(lesson.id)}
-                                className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
-                                disabled={isDeletingLesson}
-                              >
-                                {isDeletingLesson ? 'Removing…' : 'Delete'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  </div>
+                            return (
+                              <tr key={lesson.id} className="hover:bg-primary/5">
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold text-primary">{lesson.title}</span>
+                                    <span className="text-xs uppercase tracking-wide text-textdark/50">{lesson.moduleType}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">{lesson.moduleTitle}</td>
+                                <td className="px-4 py-3">{lesson.format}</td>
+                                <td className="px-4 py-3">{lesson.duration}</td>
+                                <td className="px-4 py-3">
+                                  {lesson.tags.length ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {lesson.tags.map((tag) => (
+                                        <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                                          {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-textdark/50">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">{lesson.enhanced}</td>
+                                <td className="px-4 py-3">{lesson.createdAt}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditLesson(lesson.id)}
+                                      className="inline-flex items-center justify-center rounded-full border border-primary px-3 py-1 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white"
+                                      disabled={isDeletingLesson}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteLesson(lesson.id)}
+                                      className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                      disabled={isDeletingLesson}
+                                    >
+                                      {isDeletingLesson ? 'Removing…' : 'Delete'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </>
               )}
             </section>

@@ -291,20 +291,32 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
     );
   };
 
+  const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
+
   return (
     <div className="relative">
       {renderContent()}
       {showOverlay ? (
-        <button
-          type="button"
-          onClick={onStartLesson}
-          disabled={progressBusy}
-          className="absolute inset-0 flex items-center justify-center rounded-lg bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30 disabled:opacity-80"
-        >
-          <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">
-            {progressBusy ? 'Starting…' : 'Start lesson'}
-          </span>
-        </button>
+        <div className="absolute inset-0 overflow-hidden rounded-lg">
+          {imageUrl ? (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${imageUrl})` }}
+            />
+          ) : null}
+          {imageUrl ? <span aria-hidden="true" className="absolute inset-0 z-10 bg-primary/35 backdrop-blur-[2px]" /> : null}
+          <button
+            type="button"
+            onClick={onStartLesson}
+            disabled={progressBusy}
+            className="relative z-20 flex h-full w-full items-center justify-center bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30 disabled:opacity-80"
+          >
+            <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">
+              {progressBusy ? 'Starting…' : 'Start lesson'}
+            </span>
+          </button>
+        </div>
       ) : null}
     </div>
   );

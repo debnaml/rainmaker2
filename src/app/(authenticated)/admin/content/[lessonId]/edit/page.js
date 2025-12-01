@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -103,6 +104,8 @@ export default function EditLessonPage() {
   const [duration, setDuration] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState(null);
   const [sequence, setSequence] = useState('');
   const [isEnhancedOnly, setIsEnhancedOnly] = useState(false);
   const [selectedPresenterIds, setSelectedPresenterIds] = useState([]);
@@ -122,6 +125,7 @@ export default function EditLessonPage() {
   const [resourceEditError, setResourceEditError] = useState(null);
   const resourceFileInputRef = useRef(null);
   const resourceEditFileInputRef = useRef(null);
+  const imageFileInputRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -226,6 +230,10 @@ export default function EditLessonPage() {
         setDuration(lesson.duration ?? '');
         setExternalUrl(lesson.url ?? '');
         setImageUrl(lesson.image_url ?? '');
+        setImageUploadError(null);
+        if (imageFileInputRef.current) {
+          imageFileInputRef.current.value = '';
+        }
         setSequence(lesson.sequence !== null && lesson.sequence !== undefined ? String(lesson.sequence) : '');
         setIsEnhancedOnly(Boolean(lesson.is_enhanced_only));
         setSelectedPresenterIds(Array.isArray(lesson.presenterIds) ? lesson.presenterIds.map(String) : []);
@@ -593,6 +601,48 @@ export default function EditLessonPage() {
     });
   };
 
+  const handleClearImage = () => {
+    setImageUrl('');
+    setImageUploadError(null);
+    if (imageFileInputRef.current) {
+      imageFileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageFileChange = async (event) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    if (!nextFile) return;
+
+    setImageUploadError(null);
+    setImageUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', nextFile);
+
+      const response = await fetch('/api/admin/uploads/lesson-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? 'Unable to upload image.');
+      }
+
+      setImageUrl(payload.url ?? '');
+    } catch (error) {
+      console.error('Failed to upload lesson image', error);
+      setImageUploadError(error.message ?? 'Unable to upload image.');
+    } finally {
+      setImageUploading(false);
+      if (imageFileInputRef.current) {
+        imageFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!lessonId) return;
@@ -785,17 +835,70 @@ export default function EditLessonPage() {
                     />
                   </label>
 
-                  <label className="flex flex-col text-sm font-medium text-primary md:col-span-2">
-                    Image URL
+                  <div className="flex flex-col text-sm font-medium text-primary md:col-span-2">
+                    <label htmlFor="admin-edit-lesson-image-url" className="text-sm font-medium text-primary">
+                      Featured image
+                    </label>
                     <input
+                      id="admin-edit-lesson-image-url"
                       type="url"
                       value={imageUrl}
-                      onChange={(event) => setImageUrl(event.target.value)}
+                      onChange={(event) => {
+                        setImageUrl(event.target.value);
+                        if (imageUploadError) {
+                          setImageUploadError(null);
+                        }
+                      }}
                       className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                       placeholder="https://"
                       disabled={submitting}
                     />
-                  </label>
+                    <div className="mt-2 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                        <label htmlFor="admin-edit-lesson-image-upload" className="text-xs font-semibold uppercase tracking-wide text-textdark/60">
+                          Upload image
+                        </label>
+                        <input
+                          id="admin-edit-lesson-image-upload"
+                          ref={imageFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageFileChange}
+                          disabled={submitting || imageUploading}
+                          className="text-xs text-textdark"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleClearImage}
+                          disabled={submitting || imageUploading || !imageUrl}
+                          className="inline-flex items-center justify-center rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-primary transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Clear image
+                        </button>
+                      </div>
+                      <p className="text-xs font-normal text-textdark/60">
+                        Upload a new image (5MB max). The file is stored and the public link is inserted above.
+                      </p>
+                      {imageUploading ? (
+                        <p className="text-xs text-textdark/60">Uploading image…</p>
+                      ) : null}
+                      {imageUploadError ? (
+                        <p className="text-xs text-red-600">{imageUploadError}</p>
+                      ) : null}
+                      {imageUrl ? (
+                        <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
+                          <Image
+                            src={imageUrl}
+                            alt="Lesson preview"
+                            width={640}
+                            height={256}
+                            className="h-32 w-full object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-4 rounded-md border border-slate-200 p-4">
