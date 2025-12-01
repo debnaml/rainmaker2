@@ -42,6 +42,42 @@ function buildLessonsQuery({ role, moduleType, favouritesFor }) {
   return params.toString();
 }
 
+function resolveLessonTone(lesson) {
+  const formatValue = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
+  const moduleTypeValue = typeof lesson?.module?.type === 'string' ? lesson.module.type.toLowerCase() : '';
+
+  const candidates = [formatValue, moduleTypeValue].filter(Boolean);
+
+  const matches = (needle) => candidates.some((value) => value.includes(needle));
+
+  if (matches('core')) return 'core';
+  if (matches('bite')) return 'bitesize';
+  if (matches('story')) return 'stories';
+  if (matches('live')) return 'live';
+  if (matches('f2f')) return 'f2f';
+
+  return 'default';
+}
+
+function getLessonCardToneClasses(lesson) {
+  const tone = resolveLessonTone(lesson);
+
+  switch (tone) {
+    case 'core':
+      return 'bg-[#EAF3FF] border border-[#CDE0FF]';
+    case 'bitesize':
+      return 'bg-[#FFF5E8] border border-[#FFE1BE]';
+    case 'stories':
+      return 'bg-[#F7EEFF] border border-[#E2D1FF]';
+    case 'live':
+      return 'bg-[#E8FBF4] border border-[#C5F2E2]';
+    case 'f2f':
+      return 'bg-[#F2F5F9] border border-[#D9E2ED]';
+    default:
+      return 'bg-white border border-[#E6E6E6]';
+  }
+}
+
 export default function LessonsExplorer({
   pageTitle,
   pageDescription,
@@ -242,7 +278,7 @@ export default function LessonsExplorer({
                       return (
                         <article
                           key={id ?? `${displayTitle}-${sequence ?? ''}`}
-                          className="flex h-full flex-col overflow-hidden rounded-lg bg-white transition-shadow hover:shadow-md"
+                          className={`flex h-full flex-col overflow-hidden rounded-lg transition-shadow hover:shadow-md ${getLessonCardToneClasses(lesson)}`}
                         >
                           {imageUrl ? (
                             <div className="relative h-36 w-full">
