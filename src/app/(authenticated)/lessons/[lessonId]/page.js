@@ -42,6 +42,17 @@ function formatDuration(duration) {
   return duration;
 }
 
+function isFlipsnackType(type) {
+  if (!type) return false;
+  const lower = String(type).toLowerCase();
+  return lower.includes('flip') || lower.includes('snack');
+}
+
+function isFaceToFaceType(type) {
+  if (!type) return false;
+  return String(type).toLowerCase() === 'f2f';
+}
+
 function ProgressPill({ status }) {
   const label = STATUS_LABELS[status] ?? 'Not started';
   const color = (() => {
@@ -128,7 +139,7 @@ function ResourcesList({ resources, onOpenFlipsnack }) {
     <ul className="space-y-3">
       {resources.map((resource) => {
         const key = resource.id ?? resource.url ?? resource.title;
-        const isFlipsnack = resource.type === 'flipsnack';
+        const isFlipsnack = isFlipsnackType(resource.type);
         const handleClick = () => {
           if (isFlipsnack && typeof onOpenFlipsnack === 'function') {
             onOpenFlipsnack(resource);
@@ -239,10 +250,35 @@ function FlipsnackLightbox({ resource, onClose }) {
 
 function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   const hasStarted = progress?.status && progress.status !== 'not_started';
-  const showOverlay = !hasStarted && !progressBusy;
+  const primaryContent = lesson?.primaryContent;
+  const primaryFormat = primaryContent?.type;
+  const isPrimaryFlipsnack = isFlipsnackType(primaryFormat);
+  const isFaceToFace = isFaceToFaceType(primaryFormat ?? lesson?.format);
+  const shouldShowButton = !isFaceToFace && (isPrimaryFlipsnack || (!hasStarted && !progressBusy));
+  const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
+
+  const renderStaticCard = (fallbackMessage) => (
+    <div className="relative h-64 overflow-hidden rounded-lg border border-[#D9D9D9] bg-white">
+      {imageUrl ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${imageUrl})` }}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm text-textdark/60">
+          {fallbackMessage}
+        </div>
+      )}
+    </div>
+  );
 
   const renderContent = () => {
-    if (!lesson?.primaryContent?.url) {
+    if (isFaceToFace) {
+      return renderStaticCard('This face-to-face lesson will be facilitated in person.');
+    }
+
+    if (!primaryContent?.url) {
       return (
         <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-primary/30 bg-white/50">
           <p className="text-sm text-textdark/60">Content coming soon.</p>
@@ -250,8 +286,13 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
       );
     }
 
-    const format = lesson.primaryContent?.type?.toLowerCase() ?? '';
-    const url = lesson.primaryContent.url;
+    const url = primaryContent.url;
+
+    if (isPrimaryFlipsnack) {
+      return renderStaticCard('Flipsnack resource opens in a lightbox.');
+    }
+
+    const format = primaryFormat?.toLowerCase() ?? '';
 
     if (format.includes('video')) {
       return (
@@ -263,14 +304,6 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
-        </div>
-      );
-    }
-
-    if (format.includes('flip') || format.includes('snack')) {
-      return (
-        <div className="relative h-64 overflow-hidden rounded-lg border border-[#D9D9D9] bg-white">
-          <iframe src={url} title={lesson.title} className="h-full w-full" />
         </div>
       );
     }
@@ -291,12 +324,10 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
     );
   };
 
-  const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
-
   return (
     <div className="relative">
       {renderContent()}
-      {showOverlay ? (
+      {shouldShowButton ? (
         <div className="absolute inset-0 overflow-hidden rounded-lg">
           {imageUrl ? (
             <span
@@ -313,7 +344,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
             className="relative z-20 flex h-full w-full items-center justify-center bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30 disabled:opacity-80"
           >
             <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">
-              {progressBusy ? 'Starting…' : 'Start lesson'}
+              {progressBusy ? 'Starting…' : isPrimaryFlipsnack ? 'Launch Flipsnack' : 'Start lesson'}
             </span>
           </button>
         </div>
@@ -434,10 +465,26 @@ export default function LessonDetailPage() {
     }
   };
 
-  const handleStartLesson = () => {
+  const handleStartLesson = async () => {
     if (progressBusy) return;
-    if (progress?.status && progress.status !== 'not_started') return;
-    handleUpdateProgress({ status: 'in_progress', progressPercent: progress?.progressPercent ?? 0 });
+
+    const alreadyStarted = progress?.status && progress.status !== 'not_started';
+    const primaryContent = lesson?.primaryContent;
+    if (isFaceToFaceType(primaryContent?.type ?? lesson?.format)) {
+      return;
+    }
+    const shouldLaunchFlipsnack = Boolean(primaryContent?.url) && isFlipsnackType(primaryContent?.type);
+
+    if (!alreadyStarted) {
+      await handleUpdateProgress({ status: 'in_progress', progressPercent: progress?.progressPercent ?? 0 });
+    }
+
+    if (shouldLaunchFlipsnack) {
+      setActiveFlipsnack({
+        ...primaryContent,
+        title: primaryContent?.title ?? lesson?.title ?? 'Flipsnack resource',
+      });
+    }
   };
 
   const handleMarkComplete = () => {
