@@ -127,6 +127,9 @@ export default function Header({ user }) {
           <Link href="/stories" className="transition hover:text-mint">
             Stories
           </Link>
+          <Link href="/leaders" className="transition hover:text-mint">
+            Leaders
+          </Link>
           {isAdmin ? (
             <div className="relative">
               <button
@@ -168,6 +171,13 @@ export default function Header({ user }) {
                       Content
                     </Link>
                     <Link
+                      href="/admin/leaders"
+                      className="px-4 py-2 transition hover:bg-white/10"
+                      onClick={closeAdmin}
+                    >
+                      Leaders
+                    </Link>
+                    <Link
                       href="/admin/reports"
                       className="px-4 py-2 transition hover:bg-white/10"
                       onClick={closeAdmin}
@@ -181,7 +191,7 @@ export default function Header({ user }) {
           ) : null}
         </nav>
 
-        <div className="relative hidden flex-1 items-center max-w-xs sm:max-w-md md:flex">
+        <div className="relative hidden flex-1 items-center max-w-[220px] sm:max-w-[280px] lg:max-w-[320px] md:flex">
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
             <Image src="/svgs/search-icon.svg" alt="Search" width={18} height={18} />
           </span>
@@ -299,6 +309,9 @@ export default function Header({ user }) {
               <Link href="/stories" onClick={closeMobile} className="transition hover:text-mint">
                 Stories
               </Link>
+              <Link href="/leaders" onClick={closeMobile} className="transition hover:text-mint">
+                Leaders
+              </Link>
               {isAdmin ? (
                 <>
                   <Link href="/admin/users" onClick={closeMobile} className="transition hover:text-mint">
@@ -313,6 +326,9 @@ export default function Header({ user }) {
                     </Link>
                     <Link href="/admin/content" onClick={closeMobile} className="transition hover:text-mint">
                       Content
+                    </Link>
+                    <Link href="/admin/leaders" onClick={closeMobile} className="transition hover:text-mint">
+                      Leaders
                     </Link>
                     <Link href="/admin/reports" onClick={closeMobile} className="transition hover:text-mint">
                       Reports
