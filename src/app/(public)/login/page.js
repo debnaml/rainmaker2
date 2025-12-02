@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { useAuth } from '/lib/authContext';
 
 const DEMO_USERS = [
@@ -33,6 +34,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [pendingRole, setPendingRole] = useState(null);
   const [error, setError] = useState(null);
+  const [ssoPending, setSsoPending] = useState(false);
+  const ssoEnabled = useMemo(() => process.env.NEXT_PUBLIC_AZURE_AD_SSO_ENABLED === 'true', []);
 
   useEffect(() => {
     if (user) router.push('/dashboard');
@@ -94,6 +97,29 @@ export default function LoginPage() {
         <h1 className="text-2xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
           Rainmaker Login
         </h1>
+        {ssoEnabled ? (
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setSsoPending(true);
+                signIn('azure-ad', { callbackUrl: '/dashboard' }).catch((signInError) => {
+                  console.error('Azure AD sign-in failed to start', signInError);
+                  setError('Unable to start single sign-on. Please try again or use a demo login.');
+                  setSsoPending(false);
+                });
+              }}
+              disabled={ssoPending || Boolean(pendingRole)}
+              className="flex w-full flex-col rounded-md border border-primary bg-white px-4 py-3 text-left text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:border-primary/40 disabled:text-primary/50"
+            >
+              <span className="text-sm font-semibold">
+                {ssoPending ? 'Redirecting to Birketts SSO…' : 'Sign in with Birketts SSO'}
+              </span>
+              <span className="text-xs text-primary/70">Use your Microsoft 365 credentials.</span>
+            </button>
+          </div>
+        ) : null}
         <div className="space-y-3">
           {DEMO_USERS.map((preset) => {
             const isPending = pendingRole === preset.role;

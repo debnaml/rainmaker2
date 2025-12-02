@@ -14,6 +14,18 @@ pnpm dev
 bun dev
 ```
 
+## Azure AD SSO (Optional)
+
+Rainmaker now supports optional Azure Active Directory single sign-on via NextAuth. Nothing changes until the following environment variables are provided:
+
+- `AZURE_AD_TENANT_ID`
+- `AZURE_AD_CLIENT_ID`
+- `AZURE_AD_CLIENT_SECRET`
+- `NEXTAUTH_SECRET`
+- `NEXT_PUBLIC_AZURE_AD_SSO_ENABLED=true`
+
+Leave these values unset (or the public flag set to `false`) to keep the existing local/demo login flow. Once the Azure credentials are supplied, enable the public flag and the "Sign in with Birketts SSO" button will appear on the login page. Removing the credentials or flipping the flag back to `false` cleanly rolls the change back.
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.

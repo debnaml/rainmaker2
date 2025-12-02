@@ -14,9 +14,12 @@ const CONTENT_SECTION_ITEMS = [
   { key: 'formats', label: 'Formats', href: '/admin/content?view=formats' },
 ];
 
-const VALID_VIEWS = new Set(['lessons', 'modules']);
+const VALID_VIEWS = new Set(['lessons', 'modules', 'presenters']);
 const DEFAULT_VIEW = 'lessons';
 const MODULE_TYPE_DATALIST_ID = 'admin-module-types';
+const INITIAL_PRESENTER_FORM = {
+  name: '',
+};
 const LESSON_SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
   { value: 'oldest', label: 'Oldest first' },
@@ -46,6 +49,7 @@ export default function AdminContentPage() {
   const currentView = VALID_VIEWS.has(viewParam) ? viewParam : DEFAULT_VIEW;
   const isLessonsView = currentView === 'lessons';
   const isModulesView = currentView === 'modules';
+  const isPresentersView = currentView === 'presenters';
 
   const [lessons, setLessons] = useState([]);
   const [lessonsLoading, setLessonsLoading] = useState(false);
@@ -77,6 +81,16 @@ export default function AdminContentPage() {
     () => ALLOWED_MODULE_TYPES.join(', '),
     []
   );
+
+  const [presenters, setPresenters] = useState([]);
+  const [presentersLoading, setPresentersLoading] = useState(false);
+  const [presentersError, setPresentersError] = useState(null);
+  const [presenterForm, setPresenterForm] = useState(INITIAL_PRESENTER_FORM);
+  const [presenterFormError, setPresenterFormError] = useState(null);
+  const [presenterSubmitting, setPresenterSubmitting] = useState(false);
+  const [editingPresenterId, setEditingPresenterId] = useState(null);
+  const [presenterDeleteSubmittingId, setPresenterDeleteSubmittingId] = useState(null);
+  const [presenterDeleteError, setPresenterDeleteError] = useState(null);
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -165,6 +179,38 @@ export default function AdminContentPage() {
       isMounted = false;
     };
   }, [isAdmin, isModulesView]);
+
+  useEffect(() => {
+    if (!isAdmin || !isPresentersView) return;
+
+    const controller = new AbortController();
+
+    async function loadPresenters() {
+      try {
+        setPresentersLoading(true);
+        setPresentersError(null);
+
+        const response = await fetch('/api/admin/presenters', { signal: controller.signal });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? 'Unable to load presenters.');
+        }
+
+        setPresenters(Array.isArray(payload.presenters) ? payload.presenters : []);
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.error('Failed to load presenters for admin content', error);
+        setPresentersError(error.message ?? 'Unable to load presenters.');
+      } finally {
+        setPresentersLoading(false);
+      }
+    }
+
+    loadPresenters();
+
+    return () => controller.abort();
+  }, [isAdmin, isPresentersView]);
 
   const lessonModuleOptions = useMemo(() => {
     const map = new Map();
@@ -328,10 +374,32 @@ export default function AdminContentPage() {
     });
   }, [modules]);
 
-  const pageHeading = isModulesView ? 'Modules' : 'Lessons';
-  const pageDescription = isModulesView
-    ? 'Organise lessons into modules and control their order in Rainmaker.'
-    : 'Plan and publish Rainmaker lessons, bitesize refreshers, and stories. Build tools landing here soon.';
+  const sortedPresenters = useMemo(() => {
+    if (!Array.isArray(presenters)) return [];
+    return [...presenters].sort((a, b) => {
+      const nameA = (a?.name ?? '').toLowerCase();
+      const nameB = (b?.name ?? '').toLowerCase();
+      if (nameA !== nameB) {
+        return nameA.localeCompare(nameB);
+      }
+      const updatedA = new Date(a?.updatedAt ?? a?.createdAt ?? 0).getTime();
+      const updatedB = new Date(b?.updatedAt ?? b?.createdAt ?? 0).getTime();
+      return updatedB - updatedA;
+    });
+  }, [presenters]);
+
+  const presenterCount = sortedPresenters.length;
+  const presenterCountLabel = presenterCount === 1 ? '1 presenter' : `${presenterCount} presenters`;
+
+  let pageHeading = 'Lessons';
+  let pageDescription = 'Plan and publish Rainmaker lessons, bitesize refreshers, and stories. Build tools landing here soon.';
+  if (isModulesView) {
+    pageHeading = 'Modules';
+    pageDescription = 'Organise lessons into modules and control their order in Rainmaker.';
+  } else if (isPresentersView) {
+    pageHeading = 'Presenters';
+    pageDescription = 'Maintain the presenter names and titles that appear throughout Rainmaker lessons.';
+  }
 
   if (loading || !isAdmin) {
     return null;
@@ -382,6 +450,110 @@ export default function AdminContentPage() {
       setLessonDeleteError(error.message ?? 'Unable to delete lesson.');
     } finally {
       setLessonDeleteSubmittingId(null);
+    }
+  };
+
+  const resetPresenterForm = () => {
+    setPresenterForm(INITIAL_PRESENTER_FORM);
+    setPresenterFormError(null);
+    setPresenterSubmitting(false);
+    setEditingPresenterId(null);
+  };
+
+  const handlePresenterInputChange = (event) => {
+    const { name, value } = event.target;
+    setPresenterForm((previous) => ({ ...previous, [name]: value }));
+  };
+
+  const handlePresenterSubmit = async (event) => {
+    event.preventDefault();
+    if (presenterSubmitting) return;
+
+    const nameValue = presenterForm.name.trim();
+    if (!nameValue) {
+      setPresenterFormError('Name is required.');
+      return;
+    }
+
+    const payload = {
+      name: nameValue,
+    };
+
+    const endpoint = editingPresenterId
+      ? `/api/admin/presenters/${editingPresenterId}`
+      : '/api/admin/presenters';
+    const method = editingPresenterId ? 'PATCH' : 'POST';
+
+    setPresenterSubmitting(true);
+    setPresenterFormError(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Unable to save presenter.');
+      }
+
+      const presenterRecord = result.presenter;
+      if (presenterRecord) {
+        setPresenters((previous) => {
+          if (editingPresenterId) {
+            return previous.map((item) => (item.id === presenterRecord.id ? presenterRecord : item));
+          }
+          return [presenterRecord, ...previous];
+        });
+      }
+
+      resetPresenterForm();
+    } catch (error) {
+      console.error('Failed to submit presenter form', error);
+      setPresenterFormError(error.message ?? 'Unable to save presenter.');
+      setPresenterSubmitting(false);
+    }
+  };
+
+  const handlePresenterEdit = (presenter) => {
+    if (!presenter) return;
+    setEditingPresenterId(presenter.id);
+    setPresenterForm({
+      name: presenter.name ?? '',
+    });
+    setPresenterFormError(null);
+  };
+
+  const handlePresenterCancelEdit = () => {
+    resetPresenterForm();
+  };
+
+  const handlePresenterDelete = async (presenterId) => {
+    if (!presenterId) return;
+    const confirmed = window.confirm('Delete this presenter? They will be removed from any lessons.');
+    if (!confirmed) return;
+
+    setPresenterDeleteSubmittingId(presenterId);
+    setPresenterDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/admin/presenters/${presenterId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Unable to delete presenter.');
+      }
+
+      setPresenters((previous) => previous.filter((item) => item.id !== presenterId));
+      if (editingPresenterId === presenterId) {
+        resetPresenterForm();
+      }
+    } catch (error) {
+      console.error('Failed to delete presenter', error);
+      setPresenterDeleteError(error.message ?? 'Unable to delete presenter.');
+    } finally {
+      setPresenterDeleteSubmittingId(null);
     }
   };
 
@@ -784,6 +956,148 @@ export default function AdminContentPage() {
                   )}
                 </>
               )}
+            </section>
+          ) : null}
+
+          {isPresentersView ? (
+            <section id="presenters" className="rounded-md bg-white p-6 shadow-sm">
+              <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-primary">Presenters</h2>
+                  <p className="text-sm text-textdark/70">
+                    Add and edit presenter names so lessons show the right people.
+                  </p>
+                </div>
+                <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                  {presentersLoading ? 'Loading…' : presenterCountLabel}
+                </span>
+              </header>
+
+              {presentersError ? (
+                <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {presentersError}
+                </div>
+              ) : null}
+              {presenterDeleteError ? (
+                <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {presenterDeleteError}
+                </div>
+              ) : null}
+
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
+                <form onSubmit={handlePresenterSubmit} className="space-y-4 rounded-md border border-[#E4E2EF] p-4" noValidate>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold text-primary">
+                      {editingPresenterId ? 'Edit presenter' : 'Add presenter'}
+                    </h3>
+                    <p className="text-sm text-textdark/60">
+                      {editingPresenterId
+                        ? 'Update the presenter name below and save when you are done.'
+                        : 'Create a presenter to make them available in lesson editors.'}
+                    </p>
+                  </div>
+
+                  <label className="flex flex-col text-sm font-medium text-primary">
+                    Name *
+                    <input
+                      type="text"
+                      name="name"
+                      value={presenterForm.name}
+                      onChange={handlePresenterInputChange}
+                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-textdark shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="e.g. Alex Johnson"
+                      required
+                      disabled={presenterSubmitting}
+                      autoComplete="off"
+                    />
+                  </label>
+
+                  {presenterFormError ? (
+                    <p className="text-sm text-red-600">{presenterFormError}</p>
+                  ) : null}
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    {editingPresenterId ? (
+                      <button
+                        type="button"
+                        onClick={handlePresenterCancelEdit}
+                        className="inline-flex items-center justify-center rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white"
+                        disabled={presenterSubmitting}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
+                    <button
+                      type="submit"
+                      disabled={presenterSubmitting}
+                      className="inline-flex items-center justify-center rounded-full bg-action px-6 py-2 text-sm font-semibold text-white transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {presenterSubmitting ? 'Saving…' : editingPresenterId ? 'Save changes' : 'Add presenter'}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="space-y-4">
+                  {presentersLoading ? (
+                    <div className="space-y-3">
+                      {[0, 1, 2, 3].map((index) => (
+                        <div key={index} className="h-16 w-full animate-pulse rounded-md bg-purplebg/60" />
+                      ))}
+                    </div>
+                  ) : sortedPresenters.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-primary/30 bg-white/60 p-6 text-sm text-textdark/70">
+                      No presenters yet. Add one using the form to the left.
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-md border border-[#E4E2EF]">
+                      <table className="min-w-full divide-y divide-[#E4E2EF] text-sm">
+                        <thead className="bg-[#F8F7FC] text-xs font-semibold uppercase tracking-wide text-textdark/60">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left">Name</th>
+                            <th scope="col" className="px-4 py-3 text-left">Updated</th>
+                            <th scope="col" className="px-4 py-3 text-left">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E4E2EF] bg-white text-textdark/80">
+                          {sortedPresenters.map((presenter) => {
+                            const isDeleting = presenterDeleteSubmittingId === presenter.id;
+                            const updatedLabel = formatDate(presenter?.updatedAt ?? presenter?.createdAt);
+
+                            return (
+                              <tr key={presenter.id} className="hover:bg-primary/5">
+                                <td className="px-4 py-3">
+                                  <span className="font-semibold text-primary">{presenter.name}</span>
+                                </td>
+                                <td className="px-4 py-3">{updatedLabel}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePresenterEdit(presenter)}
+                                      className="inline-flex items-center justify-center rounded-full border border-primary px-3 py-1 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white"
+                                      disabled={isDeleting || presenterSubmitting}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePresenterDelete(presenter.id)}
+                                      className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                      disabled={isDeleting}
+                                    >
+                                      {isDeleting ? 'Removing…' : 'Delete'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
             </section>
           ) : null}
 

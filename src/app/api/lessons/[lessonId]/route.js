@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { derivePresenterDisplayName } from '/lib/presenters';
 import { normalizeResourceRecord, sortResources } from '/lib/resources/normalizers';
 import { createSupabaseServiceClient } from '/lib/supabaseServer';
 
@@ -148,6 +149,33 @@ export async function GET(request, { params }) {
       resources = [];
     }
 
+    let presenters = [];
+    try {
+      const { data: presenterLinkRows, error: presenterLinkError } = await supabase
+        .from('lesson_presenters')
+        .select('presenter_id, presenters:presenter_id(*)')
+        .eq('lesson_id', lesson.id);
+
+      if (presenterLinkError) throw presenterLinkError;
+
+      const seen = new Set();
+      presenters = (Array.isArray(presenterLinkRows) ? presenterLinkRows : [])
+        .map((row) => row?.presenters ?? null)
+        .map((record) => {
+          const displayName = derivePresenterDisplayName(record);
+          if (!record?.id || !displayName) return null;
+          const key = String(record.id);
+          if (seen.has(key)) return null;
+          seen.add(key);
+          return { id: record.id, name: displayName };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    } catch (presenterError) {
+      console.error('[api/lessons/[lessonId]] Failed to load lesson presenters', presenterError);
+      presenters = [];
+    }
+
     const responsePayload = {
       lesson: {
         id: lesson.id,
@@ -168,6 +196,7 @@ export async function GET(request, { params }) {
               sequence: moduleInfo.sequence,
             }
           : null,
+        presenters,
         primaryContent: {
           type: lesson.format,
           url: lesson.url,

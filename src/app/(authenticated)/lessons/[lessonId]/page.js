@@ -433,6 +433,19 @@ export default function LessonDetailPage() {
   }, [progress]);
 
   const moduleTypeLabel = formatModuleType(lesson?.module?.type);
+  const presenterNames = useMemo(() => {
+    if (!Array.isArray(lesson?.presenters)) return [];
+    return lesson.presenters
+      .map((presenter) => {
+        if (!presenter) return '';
+        const value = typeof presenter === 'string' ? presenter : presenter.name;
+        if (typeof value !== 'string') return '';
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : '';
+      })
+      .filter((name) => name.length > 0);
+  }, [lesson?.presenters]);
+  const presenterLabel = presenterNames.length === 1 ? 'Presenter' : 'Presenters';
 
   const handleUpdateProgress = async (updates) => {
     if (progressBusy) return;
@@ -676,6 +689,12 @@ export default function LessonDetailPage() {
                     <dt className="text-textdark/60">Duration</dt>
                     <dd className="font-medium text-textdark/80">{formatDuration(lesson.duration)}</dd>
                   </div>
+                  {presenterNames.length ? (
+                    <div className="flex justify-between">
+                      <dt className="text-textdark/60">{presenterLabel}</dt>
+                      <dd className="ml-6 flex-1 text-right font-medium text-primary">{presenterNames.join(', ')}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               </div>
 

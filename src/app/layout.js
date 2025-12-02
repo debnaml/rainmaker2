@@ -1,5 +1,5 @@
 import { Inter } from 'next/font/google';
-import { AuthProvider } from '/lib/authContext';
+import AppProviders from '../../lib/appProviders';
 import './globals.css';
 
 
@@ -20,9 +20,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans`}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
