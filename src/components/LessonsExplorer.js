@@ -94,6 +94,37 @@ function getLessonToneStyles(lesson) {
   return { tone, ...styles };
 }
 
+function resolveLessonButtonLabel(lesson) {
+  const formatValueRaw = typeof lesson?.format === 'string' ? lesson.format : '';
+  const formatValue = formatValueRaw.trim().toUpperCase();
+
+  if (formatValue.includes('PODCAST')) {
+    return 'Watch podcast';
+  }
+
+  if (formatValue.includes('PRE-RECORDED WEBINAR')) {
+    return 'Watch webinar';
+  }
+
+  if (formatValue.includes('LIVE WEBINAR')) {
+    return 'Join webinar';
+  }
+
+  if (formatValue.includes('F2F')) {
+    return 'View F2F';
+  }
+
+  if (formatValue === 'WORKSHOP' || formatValue.includes('TEAMS WORKSHOP')) {
+    return 'Join workshop';
+  }
+
+  if (formatValue.includes('FLIPSNACK')) {
+    return 'View Flipsnack';
+  }
+
+  return 'View lesson';
+}
+
 export default function LessonsExplorer({
   pageTitle,
   pageDescription,
@@ -292,6 +323,7 @@ export default function LessonsExplorer({
                       }
 
                       const { buttonStart, buttonEnd } = getLessonToneStyles(lesson);
+                      const buttonLabel = resolveLessonButtonLabel(lesson);
 
                       const buttonStyle = {
                         background: `linear-gradient(135deg, ${buttonStart} 0%, ${buttonEnd} 100%)`,
@@ -304,7 +336,7 @@ export default function LessonsExplorer({
                         if (id) {
                           return (
                             <Link href={`/lessons/${id}`} className={buttonClasses} style={buttonStyle}>
-                              View lesson
+                              {buttonLabel}
                             </Link>
                           );
                         }
@@ -318,7 +350,7 @@ export default function LessonsExplorer({
                               className={buttonClasses}
                               style={buttonStyle}
                             >
-                              View lesson
+                              {buttonLabel}
                             </a>
                           );
                         }
