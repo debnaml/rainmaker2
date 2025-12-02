@@ -14,6 +14,7 @@ export default function Header({ user }) {
   const router = useRouter();
   const { logout } = useAuth();
   const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const showSearch = false;
 
   const toggleMobile = () => {
     setMobileOpen((prev) => !prev);
@@ -191,16 +192,18 @@ export default function Header({ user }) {
           ) : null}
         </nav>
 
-        <div className="relative hidden flex-1 items-center max-w-[220px] sm:max-w-[280px] lg:max-w-[320px] md:flex">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-            <Image src="/svgs/search-icon.svg" alt="Search" width={18} height={18} />
-          </span>
-          <input
-            type="search"
-            placeholder="Search for lessons"
-            className="w-full rounded-md border border-white/20 bg-white/10 py-2 pl-10 pr-3 text-base font-normal text-white placeholder-white/60 focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/40"
-          />
-        </div>
+        {showSearch ? (
+          <div className="relative hidden flex-1 items-center max-w-[220px] sm:max-w-[280px] lg:max-w-[320px] md:flex">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+              <Image src="/svgs/search-icon.svg" alt="Search" width={18} height={18} />
+            </span>
+            <input
+              type="search"
+              placeholder="Search for lessons"
+              className="w-full rounded-md border border-white/20 bg-white/10 py-2 pl-10 pr-3 text-base font-normal text-white placeholder-white/60 focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/40"
+            />
+          </div>
+        ) : null}
 
         <div className="ml-auto hidden items-center md:flex">
           <div className="relative">
@@ -278,16 +281,18 @@ export default function Header({ user }) {
       {mobileOpen ? (
         <div className="md:hidden">
           <div className="border-t border-white/10 bg-[#2A153F] px-6 pb-6 pt-4 space-y-4">
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                <Image src="/svgs/search-icon.svg" alt="Search" width={18} height={18} />
-              </span>
-              <input
-                type="search"
-                placeholder="Search"
-                className="w-full rounded-md border border-white/20 bg-white/10 py-2 pl-10 pr-3 text-base font-normal text-white placeholder-white/60 focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/40"
-              />
-            </div>
+            {showSearch ? (
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+                  <Image src="/svgs/search-icon.svg" alt="Search" width={18} height={18} />
+                </span>
+                <input
+                  type="search"
+                  placeholder="Search"
+                  className="w-full rounded-md border border-white/20 bg-white/10 py-2 pl-10 pr-3 text-base font-normal text-white placeholder-white/60 focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/40"
+                />
+              </div>
+            ) : null}
             <nav className="flex flex-col gap-3 text-base font-normal">
               <Link href="/lessons" onClick={closeMobile} className="transition hover:text-mint">
                 Lessons
