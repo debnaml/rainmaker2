@@ -125,6 +125,8 @@ export default function DashboardPage() {
   const [recentLessons, setRecentLessons] = useState([]);
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [leaderboardPosition, setLeaderboardPosition] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -220,6 +222,54 @@ export default function DashboardPage() {
     };
   }, [user]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function loadLeaderboardPosition() {
+      if (!user?.id || !user?.peerGroupId) {
+        setLeaderboardPosition(null);
+        setLeaderboardLoading(false);
+        return;
+      }
+
+      try {
+        setLeaderboardLoading(true);
+        const response = await fetch(`/api/leaderboard?userId=${encodeURIComponent(user.id)}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('Unable to load leaderboard position.');
+        }
+
+        const payload = await response.json();
+        if (!isMounted) return;
+
+        const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+        const currentUserEntry = entries.find((entry) => entry?.id === user.id);
+        setLeaderboardPosition(currentUserEntry?.rank ?? null);
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.error('Failed to load leaderboard position', error);
+        if (isMounted) {
+          setLeaderboardPosition(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLeaderboardLoading(false);
+        }
+      }
+    }
+
+    loadLeaderboardPosition();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [user?.id, user?.peerGroupId]);
+
   if (!user) return null;
 
   const firstName = user?.name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
@@ -240,8 +290,8 @@ export default function DashboardPage() {
               linkHref="#"
             />
             <PeerLeaderboardCard
-              position={null}
-              isLoading={false}
+              position={leaderboardPosition}
+              isLoading={leaderboardLoading}
               disabled={!inPeerGroup}
               linkHref="/leaderboard"
             />
