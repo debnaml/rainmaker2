@@ -29,6 +29,49 @@ const DEFAULT_PROGRESS = {
   metadata: null,
 };
 
+const MAX_COMMENT_LENGTH = 2000;
+
+function formatCommentTimestamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function extractAuthorName(user) {
+  if (!user) return 'Anonymous';
+  const candidate = user.display_name ?? user.displayName ?? user.name;
+  if (typeof candidate === 'string' && candidate.trim().length > 0) {
+    return candidate.trim();
+  }
+  if (typeof user.email === 'string' && user.email.includes('@')) {
+    return user.email.split('@')[0];
+  }
+  return 'Anonymous';
+}
+
+function normalizeComment(record) {
+  if (!record) return null;
+  const author = record.author ?? record.user ?? null;
+  const content = typeof record.content === 'string' ? record.content : '';
+  return {
+    id: record.id ?? null,
+    lessonId: record.lessonId ?? record.lesson_id ?? null,
+    userId: record.userId ?? record.user_id ?? author?.id ?? null,
+    content,
+    createdAt: record.createdAt ?? record.created_at ?? null,
+    authorName: extractAuthorName(author ?? { user_id: record.user_id }),
+  };
+}
+
+function sortCommentsDesc(a, b) {
+  const timeAValue = new Date(a?.createdAt ?? 0).getTime();
+  const timeBValue = new Date(b?.createdAt ?? 0).getTime();
+  const timeA = Number.isFinite(timeAValue) ? timeAValue : 0;
+  const timeB = Number.isFinite(timeBValue) ? timeBValue : 0;
+  return timeB - timeA;
+}
+
 function formatModuleType(type) {
   if (!type) return 'General';
   const lower = type.toLowerCase();
@@ -368,6 +411,11 @@ export default function LessonDetailPage() {
   const [progressBusy, setProgressBusy] = useState(false);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [activeFlipsnack, setActiveFlipsnack] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState(null);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   useEffect(() => {
     if (!lessonId) return;
@@ -422,6 +470,53 @@ export default function LessonDetailPage() {
       controller.abort();
     };
   }, [lessonId, user?.id, user?.role]);
+
+  useEffect(() => {
+    if (!lessonId) return;
+
+    const controller = new AbortController();
+    let isActive = true;
+
+    async function loadComments() {
+      try {
+        setCommentsLoading(true);
+        setCommentsError(null);
+
+        const response = await fetch(`/api/lessons/${lessonId}/comments`, {
+          signal: controller.signal,
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error ?? 'Unable to load comments.');
+        }
+
+        if (!isActive) return;
+
+        const normalized = Array.isArray(payload?.comments)
+          ? payload.comments.map(normalizeComment).filter(Boolean).sort(sortCommentsDesc)
+          : [];
+        setComments(normalized);
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.error('Failed to load comments', error);
+        if (isActive) {
+          setCommentsError(error.message ?? 'Unable to load comments.');
+          setComments([]);
+        }
+      } finally {
+        if (isActive) {
+          setCommentsLoading(false);
+        }
+      }
+    }
+
+    loadComments();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [lessonId]);
 
   const progressPercent = useMemo(() => {
     if (progress?.status === 'completed') return 100;
@@ -545,6 +640,52 @@ export default function LessonDetailPage() {
     setActiveFlipsnack(null);
   };
 
+  const handleSubmitComment = async (event) => {
+    event.preventDefault();
+    if (commentSubmitting) return;
+
+    const trimmed = commentInput.trim();
+
+    if (!user?.id) {
+      setCommentsError('You need to be signed in to comment.');
+      return;
+    }
+
+    if (!trimmed) {
+      setCommentsError('Please enter a comment before posting.');
+      return;
+    }
+
+    try {
+      setCommentSubmitting(true);
+      setCommentsError(null);
+
+      const response = await fetch(`/api/lessons/${lessonId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, content: trimmed }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? 'Unable to post comment.');
+      }
+
+      const createdComment = normalizeComment(payload?.comment);
+      if (createdComment) {
+        setComments((prev) => {
+          const next = [createdComment, ...prev.filter((item) => item.id !== createdComment.id)];
+          return next.sort(sortCommentsDesc);
+        });
+      }
+      setCommentInput('');
+    } catch (error) {
+      console.error('Failed to post comment', error);
+      setCommentsError(error.message ?? 'Unable to post comment.');
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
   if (!lessonId) {
     return (
       <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
@@ -658,14 +799,69 @@ export default function LessonDetailPage() {
               </div>
 
               <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold text-primary">Discussion</h2>
-                  <span className="text-xs uppercase tracking-wide text-textdark/50">Coming soon</span>
+                  <span className="text-xs uppercase tracking-wide text-textdark/50">
+                    {comments.length === 1 ? '1 comment' : `${comments.length} comments`}
+                  </span>
                 </div>
-                <p className="mt-4 text-sm text-textdark/70">
-                  Conversation around this lesson will appear here. Share reflections, ask questions, or
-                  collaborate with peers once comments are enabled.
-                </p>
+
+                {commentsError ? <p className="mt-4 text-sm text-red-600">{commentsError}</p> : null}
+
+                {user ? (
+                  <form className="mt-4 space-y-3" onSubmit={handleSubmitComment}>
+                    <label htmlFor="lesson-discussion" className="sr-only">
+                      Add a comment
+                    </label>
+                    <textarea
+                      id="lesson-discussion"
+                      name="lesson-discussion"
+                      className="min-h-[120px] w-full rounded-lg border border-[#D9D9D9] bg-white px-4 py-3 text-sm text-textdark/80 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                      placeholder="Share your thoughts or questions about this lesson..."
+                      value={commentInput}
+                      maxLength={MAX_COMMENT_LENGTH}
+                      onChange={(event) => {
+                        if (commentsError) setCommentsError(null);
+                        setCommentInput(event.target.value);
+                      }}
+                      disabled={commentSubmitting}
+                    />
+                    <div className="flex flex-col gap-3 text-xs text-textdark/60 md:flex-row md:items-center md:justify-between">
+                      <span>{commentInput.length}/{MAX_COMMENT_LENGTH}</span>
+                      <button
+                        type="submit"
+                        disabled={commentSubmitting || commentInput.trim().length === 0}
+                        className="self-start rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white transition hover:bg-action disabled:opacity-60"
+                      >
+                        {commentSubmitting ? 'Posting…' : 'Post comment'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm text-textdark/70">
+                    Sign in to join the discussion.
+                  </p>
+                )}
+
+                <div className="mt-6 space-y-4">
+                  {commentsLoading ? (
+                    <p className="text-sm text-textdark/70">Loading comments…</p>
+                  ) : comments.length === 0 ? (
+                    <p className="text-sm text-textdark/70">No comments yet. Be the first to share your thoughts.</p>
+                  ) : (
+                    comments.map((comment) => (
+                      <article key={comment.id ?? comment.createdAt} className="rounded-lg border border-[#E6E6E6] bg-white/80 p-4">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs uppercase tracking-wide text-textdark/50">
+                          <span className="font-semibold text-primary">{comment.authorName}</span>
+                          {comment.createdAt ? (
+                            <time dateTime={comment.createdAt}>{formatCommentTimestamp(comment.createdAt)}</time>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 whitespace-pre-line text-sm text-textdark/80">{comment.content}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
               </div>
             </section>
 
