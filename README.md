@@ -1,48 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Rainmaker 2
 
-## Getting Started
+Rainmaker is a Next.js 16 application backed by Supabase. Admins can manage peer groups, users, and lesson data, while learners track progress, join discussions, and compare standings via the leaderboard. This document captures the current project setup, environment expectations, and integration notes for Birketts’ Kallidus Learn platform.
 
-First, run the development server:
+## Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 20.x (matches Vercel runtime)
+- npm 10.x (shipped with Node 20)
+- Supabase project with the expected tables (`users`, `peer_groups`, `lessons`, `lesson_progress`, `comments`, etc.)
+- Optional: Azure AD application registration for SSO
+- Optional: Kallidus Learn API access (client credentials or subscription key depending on tenant configuration)
+
+## Environment Variables
+
+Create `.env.local` using the following keys:
+
+```env
+SUPABASE_URL=...
+SUPABASE_API_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# NextAuth session handling
+NEXTAUTH_SECRET=...
+NEXTAUTH_URL=https://your-deployed-domain
+
+# Azure AD SSO (set only when enabling SSO)
+NEXT_PUBLIC_AZURE_AD_SSO_ENABLED=false
+AZURE_AD_TENANT_ID=
+AZURE_AD_CLIENT_ID=
+AZURE_AD_CLIENT_SECRET=
 ```
 
-## Azure AD SSO (Optional)
+Set `NEXT_PUBLIC_AZURE_AD_SSO_ENABLED=true` only after all Azure values are present. The service-role key must be treated as confidential; restrict its use to server-side handlers.
 
-Rainmaker now supports optional Azure Active Directory single sign-on via NextAuth. Nothing changes until the following environment variables are provided:
+### Kallidus Learn Integration Inputs
 
-- `AZURE_AD_TENANT_ID`
-- `AZURE_AD_CLIENT_ID`
-- `AZURE_AD_CLIENT_SECRET`
-- `NEXTAUTH_SECRET`
-- `NEXT_PUBLIC_AZURE_AD_SSO_ENABLED=true`
+To query Learn on behalf of Birketts users you will need:
 
-Leave these values unset (or the public flag set to `false`) to keep the existing local/demo login flow. Once the Azure credentials are supplied, enable the public flag and the "Sign in with Birketts SSO" button will appear on the login page. Removing the credentials or flipping the flag back to `false` cleanly rolls the change back.
+- Learn tenant base URL (for Birketts: `https://birketts.kallidus-suite.com`)
+- Either:
+	- OAuth `clientId` and `clientSecret` (for tenant-scoped endpoints such as `/identity/connect/token` and `/api2/v1/...`), **or**
+	- An `Ocp-Apim-Subscription-Key` if your tenant has been moved to the Azure API Management gateway (`https://gateway.kallidusapi.com/...`). Some deployments require both—confirm with Kallidus support which model applies.
+- Scope string `https://www.kallidus.com/learn` when requesting a bearer token via client credentials.
+- Learner identifiers already stored in Rainmaker (email addresses or usernames) to resolve each user’s `internalUserId` (`suiteId`).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Store the resulting `suiteId` on the Rainmaker user record. It is required for calls such as `GET /api2/v1/people/{suiteId}/courses` to retrieve course and lesson progress. Maintain a mapping between Rainmaker lessons and their Kallidus `CourseId` / `LessonId` so you can filter the API response locally.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Installing Dependencies
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Clone the repository and install packages:
 
-## Learn More
+```bash
+npm install
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Development Workflow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Start the dev server: `npm run dev`
+- Run lint checks: `npm run lint`
+- Tests are currently manual; run through the dashboard, admin tools, and lesson pages after major changes.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Key Features
 
-## Deploy on Vercel
+- **Dashboard**: Displays overall completion, peer leaderboard placement, and live event stats.
+- **Leaderboard**: Aggregates peer-group progress, normalizing by role and lesson eligibility.
+- **Peer Groups Admin**: CRUD management for peer groups and peer-group membership.
+- **Users Admin**: Assign roles and peer groups inline.
+- **Lesson Discussions**: Learners can post and delete comments ordered by newest first.
+- **Lesson Progress Tracking**: Tracks progress via Supabase `lesson_progress`; enhanced lessons are hidden from standard roles.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API Routes (App Router)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `GET /api/leaderboard` – peer-group standings for the signed-in user.
+- `GET/POST /api/lessons/[lessonId]/comments` – retrieve or create lesson comments.
+- `DELETE /api/lessons/[lessonId]/comments` – delete a comment if owned by the requester.
+- `PUT /api/lessons/[lessonId]/progress` – update lesson progress.
+- `POST/DELETE /api/lessons/[lessonId]/favourite` – toggle favourites.
+- Admin routes under `/api/admin/...` handle peer groups, users, lessons, modules, and resources.
+
+All API handlers run server-side and rely on the Supabase service-role client. Protect the service key and avoid exposing these endpoints to unauthenticated users.
+
+## Adding Kallidus Progress Sync (Conceptual)
+
+1. **Resolve suiteId**: On login (or scheduled sync), call `GET /api2/v1/users?emailAddress=user@example.com` with the bearer token or subscription key; persist `internalUserId`.
+2. **Fetch course data**: Call `GET /api2/v1/people/{suiteId}/courses` (optionally with `$filter` to restrict to Rainmaker-managed courses). Cache responses to respect the 100-requests-per-minute guideline.
+3. **Filter lessons**: Match returned `Lessons[].LessonId` against the Rainmaker lesson mapping. Treat `CurrentTrainingResult.Status` values of `Attended`, `Complete`, `Passed`, or `Exempt` as completion.
+4. **Persist progress**: Update the local `lesson_progress` table to mirror Learn results, and surface completion dates via the `LastUpdated` field.
+5. **Deep links**: Use `CourseDeepLinkUrl` to send learners back to Learn when needed.
+
+No Kallidus requests are currently issued from the app; the above outline is provided to guide future development.
+
+## Deployment Notes
+
+- Production deploys target Vercel; ensure the `.env` values are mirrored in project/environment settings.
+- After each deploy, verify the dashboard leaderboard, admin tools, and lesson discussion workflow in the live environment.
+
+## Troubleshooting
+
+- **Supabase errors**: Verify `.env.local` values and that the service role key is valid.
+- **Azure SSO issues**: Confirm redirect URI matches `NEXTAUTH_URL` and that certificates/secret are up to date.
+- **Leaderboard gaps**: Users without peer groups will see a disabled leaderboard card; assign a peer group via the admin interface.
+- **Comment permissions**: Users may delete only their own comments; others see no delete control.
+
+For questions or access to integration credentials reach out to the Rainmaker maintainers or Birketts support team.
