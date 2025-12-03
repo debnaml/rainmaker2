@@ -294,7 +294,6 @@ export default function LessonsExplorer({
                       const {
                         id,
                         title,
-                        description,
                         format,
                         duration,
                         image_url: imageUrl,
@@ -308,7 +307,7 @@ export default function LessonsExplorer({
                       } = lesson;
 
                       const displayTitle = title || 'Untitled lesson';
-                      const blurb = description || 'Description coming soon.';
+                      const normalizedUrl = typeof url === 'string' ? url.trim() : '';
                       const formatLabel = format ? format : null;
                       const durationLabel = duration ? duration : null;
                       let createdLabel = 'recently';
@@ -341,10 +340,10 @@ export default function LessonsExplorer({
                           );
                         }
 
-                        if (url) {
+                        if (normalizedUrl) {
                           return (
                             <a
-                              href={url}
+                              href={normalizedUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={buttonClasses}
@@ -357,6 +356,7 @@ export default function LessonsExplorer({
 
                         return null;
                       })();
+                      const shouldShowComingSoon = normalizedUrl.length === 0;
 
                       return (
                         <article
@@ -379,7 +379,9 @@ export default function LessonsExplorer({
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex flex-col gap-2">
                                 <h2 className="text-xl font-semibold text-primary">{displayTitle}</h2>
-                                <p className="text-sm text-textdark/70">{blurb}</p>
+                                {shouldShowComingSoon ? (
+                                  <p className="text-sm font-medium text-textdark/60">Coming soon</p>
+                                ) : null}
                               </div>
                               {(isEnhancedOnly || isFavourite) ? (
                                 <div className="flex flex-col items-end gap-2">

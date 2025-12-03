@@ -96,6 +96,11 @@ function isFaceToFaceType(type) {
   return String(type).toLowerCase() === 'f2f';
 }
 
+function isPodcastType(type) {
+  if (!type) return false;
+  return String(type).toLowerCase().includes('podcast');
+}
+
 function ProgressPill({ status }) {
   const label = STATUS_LABELS[status] ?? 'Not started';
   const color = (() => {
@@ -169,7 +174,7 @@ function ModuleProgressList({ lessons, currentLessonId }) {
   );
 }
 
-function ResourcesList({ resources, onOpenFlipsnack }) {
+function ResourcesList({ resources, onOpenEmbeddedResource }) {
   if (!Array.isArray(resources) || resources.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-primary/30 bg-white/50 p-4 text-sm text-textdark/60">
@@ -184,8 +189,8 @@ function ResourcesList({ resources, onOpenFlipsnack }) {
         const key = resource.id ?? resource.url ?? resource.title;
         const isFlipsnack = isFlipsnackType(resource.type);
         const handleClick = () => {
-          if (isFlipsnack && typeof onOpenFlipsnack === 'function') {
-            onOpenFlipsnack(resource);
+          if (isFlipsnack && typeof onOpenEmbeddedResource === 'function') {
+            onOpenEmbeddedResource(resource);
           }
         };
 
@@ -223,7 +228,7 @@ function ResourcesList({ resources, onOpenFlipsnack }) {
   );
 }
 
-function FlipsnackLightbox({ resource, onClose }) {
+function MediaLightbox({ resource, onClose }) {
   const isOpen = Boolean(resource?.url);
 
   useEffect(() => {
@@ -266,7 +271,7 @@ function FlipsnackLightbox({ resource, onClose }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label={resource.title ?? 'Flipsnack preview'}
+      aria-label={resource.title ?? 'Embedded resource'}
       onClick={handleBackdropClick}
     >
       <div className="relative h-[80vh] w-[90vw] max-w-5xl" onClick={stopPropagation}>
@@ -280,8 +285,9 @@ function FlipsnackLightbox({ resource, onClose }) {
         <div className="h-full w-full overflow-hidden rounded-lg border border-white/20 bg-black shadow-2xl">
           <iframe
             src={resource.url}
-            title={resource.title ?? 'Flipsnack resource'}
+            title={resource.title ?? 'Embedded resource'}
             className="h-full w-full"
+            allow={resource.allow ?? 'autoplay; fullscreen'}
             allowFullScreen
             loading="lazy"
           />
@@ -297,8 +303,16 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   const primaryFormat = primaryContent?.type;
   const isPrimaryFlipsnack = isFlipsnackType(primaryFormat);
   const isFaceToFace = isFaceToFaceType(primaryFormat ?? lesson?.format);
-  const shouldShowButton = !isFaceToFace && (isPrimaryFlipsnack || (!hasStarted && !progressBusy));
+  const isPodcast = isPodcastType(primaryFormat ?? lesson?.format);
+  const shouldShowButton = !isFaceToFace && ((isPrimaryFlipsnack || isPodcast) || (!hasStarted && !progressBusy));
   const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
+  const startButtonLabel = progressBusy
+    ? 'Starting…'
+    : isPrimaryFlipsnack
+      ? 'Launch Flipsnack'
+      : isPodcast
+        ? 'Play podcast'
+        : 'Start lesson';
 
   const renderStaticCard = (fallbackMessage) => (
     <div className="relative h-64 overflow-hidden rounded-lg border border-[#D9D9D9] bg-white">
@@ -333,6 +347,10 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
 
     if (isPrimaryFlipsnack) {
       return renderStaticCard('Flipsnack resource opens in a lightbox.');
+    }
+
+    if (isPodcast && primaryContent?.url) {
+      return renderStaticCard('Podcast will open in a full-screen player.');
     }
 
     const format = primaryFormat?.toLowerCase() ?? '';
@@ -386,9 +404,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
             disabled={progressBusy}
             className="relative z-20 flex h-full w-full items-center justify-center bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30 disabled:opacity-80"
           >
-            <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">
-              {progressBusy ? 'Starting…' : isPrimaryFlipsnack ? 'Launch Flipsnack' : 'Start lesson'}
-            </span>
+            <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">{startButtonLabel}</span>
           </button>
         </div>
       ) : null}
@@ -410,7 +426,7 @@ export default function LessonDetailPage() {
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [progressBusy, setProgressBusy] = useState(false);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
-  const [activeFlipsnack, setActiveFlipsnack] = useState(null);
+  const [activeMediaResource, setActiveMediaResource] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState(null);
@@ -582,16 +598,21 @@ export default function LessonDetailPage() {
     if (isFaceToFaceType(primaryContent?.type ?? lesson?.format)) {
       return;
     }
-    const shouldLaunchFlipsnack = Boolean(primaryContent?.url) && isFlipsnackType(primaryContent?.type);
+    const hasContentUrl = Boolean(primaryContent?.url);
+    const isFlipsnackResource = hasContentUrl && isFlipsnackType(primaryContent?.type);
+    const isPodcastResource = hasContentUrl && (isPodcastType(primaryContent?.type) || isPodcastType(lesson?.format));
 
     if (!alreadyStarted) {
       await handleUpdateProgress({ status: 'in_progress', progressPercent: progress?.progressPercent ?? 0 });
     }
 
-    if (shouldLaunchFlipsnack) {
-      setActiveFlipsnack({
+    if (isFlipsnackResource || isPodcastResource) {
+      setActiveMediaResource({
         ...primaryContent,
-        title: primaryContent?.title ?? lesson?.title ?? 'Flipsnack resource',
+        title: primaryContent?.title ?? lesson?.title ?? (isPodcastResource ? 'Podcast player' : 'Embedded resource'),
+        allow: isPodcastResource
+          ? 'autoplay; fullscreen; picture-in-picture'
+          : 'autoplay; fullscreen',
       });
     }
   };
@@ -632,13 +653,14 @@ export default function LessonDetailPage() {
     }
   };
 
-  const handleOpenFlipsnack = (resource) => {
+  const handleOpenEmbeddedResource = (resource) => {
     if (!resource?.url) return;
-    setActiveFlipsnack(resource);
+    const allow = resource?.allow ?? (isFlipsnackType(resource?.type) ? 'autoplay; fullscreen' : undefined);
+    setActiveMediaResource({ ...resource, allow });
   };
 
-  const handleCloseFlipsnack = () => {
-    setActiveFlipsnack(null);
+  const handleCloseEmbeddedResource = () => {
+    setActiveMediaResource(null);
   };
 
   const handleSubmitComment = async (event) => {
@@ -946,7 +968,7 @@ export default function LessonDetailPage() {
               <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
                 <h2 className="text-lg font-semibold text-primary">Resources</h2>
                 <div className="mt-4">
-                  <ResourcesList resources={lesson.resources} onOpenFlipsnack={handleOpenFlipsnack} />
+                  <ResourcesList resources={lesson.resources} onOpenEmbeddedResource={handleOpenEmbeddedResource} />
                 </div>
               </div>
 
@@ -963,7 +985,7 @@ export default function LessonDetailPage() {
           </div>
         </div>
       </main>
-      <FlipsnackLightbox resource={activeFlipsnack} onClose={handleCloseFlipsnack} />
+      <MediaLightbox resource={activeMediaResource} onClose={handleCloseEmbeddedResource} />
     </div>
   );
 }
