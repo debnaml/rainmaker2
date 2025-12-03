@@ -416,6 +416,7 @@ export default function LessonDetailPage() {
   const [commentsError, setCommentsError] = useState(null);
   const [commentInput, setCommentInput] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentBeingDeleted, setCommentBeingDeleted] = useState(null);
 
   useEffect(() => {
     if (!lessonId) return;
@@ -686,6 +687,42 @@ export default function LessonDetailPage() {
     }
   };
 
+  const handleDeleteComment = async (commentId) => {
+    if (!commentId) return;
+    if (!user?.id) {
+      setCommentsError('You need to be signed in to delete comments.');
+      return;
+    }
+
+    if (commentBeingDeleted) return;
+
+    const confirmed = typeof window === 'undefined' ? true : window.confirm('Delete this comment? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      setCommentBeingDeleted(commentId);
+      setCommentsError(null);
+
+      const response = await fetch(`/api/lessons/${lessonId}/comments`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentId, userId: user.id }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Unable to delete comment.');
+      }
+
+      setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+    } catch (error) {
+      console.error('Failed to delete comment', error);
+      setCommentsError(error.message ?? 'Unable to delete comment.');
+    } finally {
+      setCommentBeingDeleted(null);
+    }
+  };
+
   if (!lessonId) {
     return (
       <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
@@ -851,10 +888,22 @@ export default function LessonDetailPage() {
                   ) : (
                     comments.map((comment) => (
                       <article key={comment.id ?? comment.createdAt} className="rounded-lg border border-[#E6E6E6] bg-white/80 p-4">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs uppercase tracking-wide text-textdark/50">
-                          <span className="font-semibold text-primary">{comment.authorName}</span>
-                          {comment.createdAt ? (
-                            <time dateTime={comment.createdAt}>{formatCommentTimestamp(comment.createdAt)}</time>
+                        <div className="flex flex-wrap items-start justify-between gap-2 text-xs uppercase tracking-wide text-textdark/50">
+                          <div className="flex flex-col gap-1">
+                            <span className="font-semibold text-primary">{comment.authorName}</span>
+                            {comment.createdAt ? (
+                              <time dateTime={comment.createdAt}>{formatCommentTimestamp(comment.createdAt)}</time>
+                            ) : null}
+                          </div>
+                          {comment.userId && user?.id && comment.userId === user.id ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(comment.id)}
+                              disabled={commentBeingDeleted === comment.id}
+                              className="rounded-full border border-red-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-600 transition hover:border-red-400 hover:text-red-700 disabled:opacity-60"
+                            >
+                              {commentBeingDeleted === comment.id ? 'Deleting…' : 'Delete'}
+                            </button>
                           ) : null}
                         </div>
                         <p className="mt-3 whitespace-pre-line text-sm text-textdark/80">{comment.content}</p>

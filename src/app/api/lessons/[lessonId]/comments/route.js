@@ -116,3 +116,60 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Unable to post comment.' }, { status: 500 });
   }
 }
+
+export async function DELETE(request, { params }) {
+  const { lessonId } = (await params) ?? {};
+
+  if (!lessonId) {
+    return NextResponse.json({ error: 'Lesson id is required.' }, { status: 400 });
+  }
+
+  try {
+    const body = await request.json();
+    const commentId = body?.commentId;
+    const userId = body?.userId;
+
+    if (!commentId) {
+      return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User id is required.' }, { status: 400 });
+    }
+
+    const supabase = createSupabaseServiceClient();
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('comments')
+      .select('id, lesson_id, user_id')
+      .eq('id', commentId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    if (!existing || String(existing.lesson_id) !== String(lessonId)) {
+      return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
+    }
+
+    if (existing.user_id !== userId) {
+      return NextResponse.json({ error: 'You can only delete your own comments.' }, { status: 403 });
+    }
+
+    const { error: deleteError } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('user_id', userId);
+
+    if (deleteError) throw deleteError;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error?.name === 'SyntaxError') {
+      return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+    }
+
+    console.error('[api/lessons/[lessonId]/comments] Failed to delete comment', error);
+    return NextResponse.json({ error: 'Unable to delete comment.' }, { status: 500 });
+  }
+}
