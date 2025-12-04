@@ -38,8 +38,8 @@ To query Learn on behalf of Birketts users you will need:
 
 - Learn tenant base URL (for Birketts: `https://birketts.kallidus-suite.com`)
 - Either:
-	- OAuth `clientId` and `clientSecret` (for tenant-scoped endpoints such as `/identity/connect/token` and `/api2/v1/...`), **or**
-	- An `Ocp-Apim-Subscription-Key` if your tenant has been moved to the Azure API Management gateway (`https://gateway.kallidusapi.com/...`). Some deployments require both—confirm with Kallidus support which model applies.
+  - OAuth `clientId` and `clientSecret` (for tenant-scoped endpoints such as `/identity/connect/token` and `/api2/v1/...`), **or**
+  - An `Ocp-Apim-Subscription-Key` if your tenant has been moved to the Azure API Management gateway (`https://gateway.kallidusapi.com/...`). Some deployments require both—confirm with Kallidus support which model applies.
 - Scope string `https://www.kallidus.com/learn` when requesting a bearer token via client credentials.
 - Learner identifiers already stored in Rainmaker (email addresses or usernames) to resolve each user’s `internalUserId` (`suiteId`).
 
@@ -102,3 +102,7 @@ No Kallidus requests are currently issued from the app; the above outline is pro
 - **Comment permissions**: Users may delete only their own comments; others see no delete control.
 
 For questions or access to integration credentials reach out to the Rainmaker maintainers or Birketts support team.
+
+## TODO
+
+- Revisit footer resource columns once new marketing content is available.

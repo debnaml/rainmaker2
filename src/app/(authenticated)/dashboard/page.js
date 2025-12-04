@@ -287,7 +287,7 @@ export default function DashboardPage() {
             <OverallProgressCard
               percent={overallProgress ?? 0}
               isLoading={progressLoading}
-              linkHref="#"
+              linkHref="/current-progress"
             />
             <PeerLeaderboardCard
               position={leaderboardPosition}
@@ -299,7 +299,7 @@ export default function DashboardPage() {
               completed={liveEventsCompleted}
               total={liveEventsTotal}
               isLoading={progressLoading}
-              linkHref="#"
+                disabled
             />
           </section>
           <section className="mt-8 grid w-full grid-cols-1 gap-6 md:grid-cols-3">

@@ -15,24 +15,6 @@ const footerLinks = [
     ],
   },
   {
-    title: 'Tagged Lessons',
-    items: [
-      { label: 'Leadership', href: '#' },
-      { label: 'Client Success', href: '#' },
-      { label: 'Wellbeing', href: '#' },
-      { label: 'Professional Growth', href: '#' },
-    ],
-  },
-  {
-    title: 'Popular Lessons',
-    items: [
-      { label: 'Rainmaker Fundamentals', href: '#' },
-      { label: 'Storytelling in Sales', href: '#' },
-      { label: 'Negotiation Deep Dive', href: '#' },
-      { label: 'Client Listening Lab', href: '#' },
-    ],
-  },
-  {
     title: 'Progress',
     items: [
       { label: 'Dashboard', href: '/dashboard' },
@@ -69,12 +51,9 @@ export default function Footer() {
             className="h-5 w-auto"
             priority={false}
           />
-          <div className="mt-[75px] grid gap-8 sm:grid-cols-2 lg:grid-cols-6">
-            {footerLinks.map(({ title, items }, index) => {
-              const columnClass = title === 'Popular Lessons' ? 'lg:col-span-2' : '';
-
-              return (
-                <div key={index} className={`space-y-4 ${columnClass}`}>
+          <div className="mt-[75px] grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {footerLinks.map(({ title, items }, index) => (
+              <div key={index} className="space-y-4">
                 {title ? (
                   <h3 className="text-base font-semibold text-primary">{title}</h3>
                 ) : (
@@ -92,9 +71,8 @@ export default function Footer() {
                     </li>
                   ))}
                 </ul>
-                </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       </div>
