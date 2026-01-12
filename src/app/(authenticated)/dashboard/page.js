@@ -20,6 +20,7 @@ const SUB_NAV_ITEMS = [
 const ROLE_PARAM_FALLBACK = 'normal';
 const LIVE_EVENT_KEYWORDS = ['live webinar', 'f2f', 'workshop', 'teams workshop'];
 const SHOW_PROGRESS_STRIP = false;
+const LAUNCH_DAY_DECK_PATH = '/launch-day-deck.pdf';
 
 function normalizeModuleType(value) {
   if (typeof value !== 'string') return null;
@@ -309,6 +310,35 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
             {`Welcome back, ${firstName}!`}
           </h1>
+          <section className="w-full rounded-[5px] border border-[#E6E2F3] bg-white p-5 text-textdark shadow-[0_6px_14px_-12px_rgba(15,30,75,0.25)]">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <p className="text-base font-medium text-primary">
+                Thank you for attending the Rainmaker launch days in December – the launch day deck is available here.
+              </p>
+              <a
+                href={LAUNCH_DAY_DECK_PATH}
+                download
+                className="inline-flex items-center gap-2 rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white"
+              >
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>Download deck</span>
+              </a>
+            </div>
+          </section>
           {SHOW_PROGRESS_STRIP ? (
             <section className="grid min-h-[120px] w-full grid-cols-1 overflow-hidden rounded-[5px] bg-white md:grid-cols-3">
               <OverallProgressCard
