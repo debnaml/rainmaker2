@@ -3,6 +3,28 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
+function extractSurname(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const parts = trimmed.split(/\s+/);
+  return parts[parts.length - 1].toLowerCase();
+}
+
+function sortLeadersBySurname(list) {
+  return [...list].sort((a, b) => {
+    const surnameA = extractSurname(a?.name);
+    const surnameB = extractSurname(b?.name);
+    if (surnameA && surnameB && surnameA !== surnameB) return surnameA.localeCompare(surnameB);
+    const nameA = (a?.name ?? '').trim().toLowerCase();
+    const nameB = (b?.name ?? '').trim().toLowerCase();
+    if (nameA && nameB) return nameA.localeCompare(nameB);
+    if (!nameA && nameB) return 1;
+    if (nameA && !nameB) return -1;
+    return 0;
+  });
+}
+
 function LeaderCard({ leader }) {
   const { name, jobTitle, yearsExperience, pastCompanies, imageUrl } = leader;
   const experienceLabel = yearsExperience != null ? `${yearsExperience} year${yearsExperience === 1 ? '' : 's'} experience` : null;
@@ -55,7 +77,8 @@ export default function LeadersPage() {
           throw new Error(payload.error ?? 'Unable to load leaders.');
         }
 
-        setLeaders(Array.isArray(payload.leaders) ? payload.leaders : []);
+        const leaderList = Array.isArray(payload.leaders) ? payload.leaders : [];
+        setLeaders(sortLeadersBySurname(leaderList));
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Failed to load leaders', err);
