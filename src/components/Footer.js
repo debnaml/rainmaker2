@@ -25,7 +25,6 @@ const footerLinks = [
   {
     title: 'Account',
     items: [
-      { label: 'Profile', href: '/profile' },
       { label: 'Favourites', href: '/lessons/favourites' },
     ],
   },

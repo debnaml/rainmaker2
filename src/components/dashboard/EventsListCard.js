@@ -1,31 +1,48 @@
 'use client';
 
-import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-function formatEventDate(value) {
-  if (!value) return 'Date TBC';
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(value));
-  } catch (error) {
-    return 'Date TBC';
-  }
-}
+export default function EventsListCard({ events = [], isLoading = false }) {
+  const sanitizedEvents = useMemo(() => (Array.isArray(events) ? events.slice(0, 4) : []), [events]);
+  const hasEvents = sanitizedEvents.length > 0;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartRef = useRef(null);
 
-export default function EventsListCard({
-  events = [],
-  isLoading = false,
-  onBookSession = null,
-  bookSessionHref = '',
-}) {
-  const showPlaceholder = !isLoading && (!Array.isArray(events) || events.length === 0);
-  const canHandleBooking = typeof onBookSession === 'function';
-  const hasBookingHref = typeof bookSessionHref === 'string' && bookSessionHref.trim().length > 0;
+  useEffect(() => {
+    if (!hasEvents) {
+      setActiveIndex(0);
+      return;
+    }
+    setActiveIndex((prev) => (prev >= sanitizedEvents.length ? 0 : prev));
+  }, [hasEvents, sanitizedEvents.length]);
+
+  const handlePrev = () => {
+    if (!hasEvents) return;
+    setActiveIndex((prev) => (prev - 1 + sanitizedEvents.length) % sanitizedEvents.length);
+  };
+
+  const handleNext = () => {
+    if (!hasEvents) return;
+    setActiveIndex((prev) => (prev + 1) % sanitizedEvents.length);
+  };
+
+  const handleTouchStart = (event) => {
+    if (!hasEvents) return;
+    touchStartRef.current = event.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (event) => {
+    if (!hasEvents || touchStartRef.current == null) return;
+    const deltaX = event.changedTouches[0].clientX - touchStartRef.current;
+    touchStartRef.current = null;
+    const swipeThreshold = 40;
+    if (deltaX > swipeThreshold) {
+      handlePrev();
+    } else if (deltaX < -swipeThreshold) {
+      handleNext();
+    }
+  };
 
   return (
     <aside className="flex h-full min-h-[260px] flex-col gap-4 rounded-[5px] bg-white p-6 shadow-sm">
@@ -41,48 +58,97 @@ export default function EventsListCard({
             </div>
           ))}
         </div>
-      ) : showPlaceholder ? (
+      ) : !hasEvents ? (
         <div className="flex flex-1 flex-col items-start justify-center gap-4 text-sm text-textdark/70">
           <div className="flex flex-col gap-2">
             <span className="text-base font-semibold text-primary">No events booked</span>
             <p>Once live sessions are scheduled, they will appear here so you can plan ahead.</p>
           </div>
-          {canHandleBooking ? (
-            <button
-              type="button"
-              onClick={onBookSession}
-              className="inline-flex items-center justify-center rounded-full bg-action px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-action/50"
-            >
-              Book a session
-            </button>
-          ) : hasBookingHref ? (
-            <a
-              href={bookSessionHref}
-              className="inline-flex items-center justify-center rounded-full bg-action px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-action/50"
-            >
-              Book a session
-            </a>
-          ) : null}
         </div>
       ) : (
-        <ul className="flex flex-1 flex-col gap-4">
-          {events.map((event) => (
-            <li key={event.id ?? event.title} className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-                <Image src="/commentsicon-grey.svg" alt="" width={18} height={18} aria-hidden="true" />
+        <div className="flex flex-1 flex-col">
+            <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-wide text-textdark/60">
+              <span>
+                Event {String(activeIndex + 1).padStart(2, '0')}/{String(sanitizedEvents.length).padStart(2, '0')}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={sanitizedEvents.length <= 1}
+                  aria-label="Previous event"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 text-lg text-primary transition disabled:opacity-30"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={sanitizedEvents.length <= 1}
+                  aria-label="Next event"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 text-lg text-primary transition disabled:opacity-30"
+                >
+                  ›
+                </button>
               </div>
-              <div className="flex flex-col gap-1 text-sm text-textdark/80">
-                <span className="font-semibold text-primary">{event.title ?? 'Live session'}</span>
-                <span className="text-xs uppercase tracking-wide text-textdark/50">
-                  {formatEventDate(event.startAt ?? event.start_at ?? event.start_time)}
-                </span>
-                {event.facilitator ? (
-                  <span className="text-xs text-textdark/60">With {event.facilitator}</span>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
+          </div>
+          <div
+            className="relative flex-1 overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div
+              className="flex h-full w-full transition-transform duration-300"
+              style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+            >
+              {sanitizedEvents.map((event) => {
+                const key = event.id ?? event.href ?? event.title;
+                const buttonClasses =
+                  'inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-action focus:outline-none focus:ring-2 focus:ring-primary/40';
+                const presenters = Array.isArray(event.presenters) ? event.presenters.filter(Boolean) : [];
+                const presenterSummary = presenters.length > 1 ? presenters.join(', ') : presenters[0];
+
+                const CardContent = (
+                  <article className="flex h-full w-full flex-col justify-between rounded border border-[#E6E6E6] bg-white px-4 py-3">
+                    <div className="space-y-3">
+                      <p className="text-lg font-semibold leading-snug text-primary">{event.title ?? 'Live session'}</p>
+                      <div className="text-sm font-semibold text-textdark/70">
+                        <span>{event.formatLabel ?? 'Live event'}</span>
+                        {event.durationLabel ? <span className="mx-1">•</span> : null}
+                        {event.durationLabel ? <span>{event.durationLabel}</span> : null}
+                      </div>
+                      {event.description ? (
+                        <p className="text-sm leading-relaxed text-textdark/70 line-clamp-3">{event.description}</p>
+                      ) : null}
+                      {presenters.length ? (
+                        <p className="text-sm text-textdark/70">
+                          Presented by {presenterSummary}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-4">
+                      {event.isInternal ? (
+                        <Link href={event.href ?? '#'} className={buttonClasses} prefetch={false}>
+                          Book now
+                        </Link>
+                      ) : (
+                        <a href={event.href ?? '#'} target="_blank" rel="noopener noreferrer" className={buttonClasses}>
+                          Book now
+                        </a>
+                      )}
+                    </div>
+                  </article>
+                );
+
+                return (
+                  <div key={key} className="w-full flex-shrink-0">
+                    {CardContent}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </aside>
   );

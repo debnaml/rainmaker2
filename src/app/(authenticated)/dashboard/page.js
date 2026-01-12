@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '/lib/authContext';
+import { collectPresenterNames } from '/lib/presenters';
 import ContinueLearningCard from '~/components/dashboard/ContinueLearningCard';
 import EventsListCard from '~/components/dashboard/EventsListCard';
 import LiveEventsCard from '~/components/dashboard/LiveEventsCard';
@@ -17,6 +18,7 @@ const SUB_NAV_ITEMS = [
 ];
 
 const ROLE_PARAM_FALLBACK = 'normal';
+const LIVE_EVENT_KEYWORDS = ['live webinar', 'f2f', 'workshop', 'teams workshop'];
 
 function normalizeModuleType(value) {
   if (typeof value !== 'string') return null;
@@ -115,6 +117,33 @@ function sortByNewestLessons(lessons) {
   });
 }
 
+function isLiveEventLesson(lesson) {
+  if (!lesson) return false;
+  const format = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
+  const hasLink = typeof lesson?.url === 'string' && lesson.url.trim().length > 0;
+  if (!hasLink) return false;
+  return LIVE_EVENT_KEYWORDS.some((keyword) => format.includes(keyword));
+}
+
+function serializeEventLesson(lesson) {
+  const trimmedUrl = typeof lesson?.url === 'string' ? lesson.url.trim() : '';
+  const internalHref = lesson?.id ? `/lessons/${lesson.id}` : trimmedUrl;
+  const formatLabel = lesson?.format ? String(lesson.format).trim() : 'Live session';
+  const durationLabel = lesson?.duration ? String(lesson.duration).trim() : null;
+  const description = lesson?.description ? String(lesson.description).trim() : null;
+  const presenters = collectPresenterNames(lesson);
+  return {
+    id: lesson?.id ?? trimmedUrl,
+    title: lesson?.title ?? 'Live session',
+    href: internalHref,
+    isInternal: Boolean(lesson?.id),
+    formatLabel,
+    durationLabel,
+    description,
+    presenters,
+  };
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [overallProgress, setOverallProgress] = useState(null);
@@ -136,6 +165,7 @@ export default function DashboardPage() {
       if (!user?.id) return;
       try {
         setProgressLoading(true);
+        setEventsLoading(true);
         const params = new URLSearchParams({
           role: user.role ?? ROLE_PARAM_FALLBACK,
           progressFor: user.id,
@@ -199,6 +229,9 @@ export default function DashboardPage() {
         const newestSource = lessons.filter(isCoreOrBitesizeLesson);
         const newest = sortByNewestLessons(newestSource).slice(0, 4);
         setRecentLessons(newest);
+
+        const liveEventLessons = lessons.filter(isLiveEventLesson).slice(0, 4).map(serializeEventLesson);
+        setEvents(liveEventLessons);
       } catch (error) {
         if (error.name === 'AbortError') return;
         console.error('Failed to load overall progress', error);
@@ -208,9 +241,13 @@ export default function DashboardPage() {
           setLiveEventsTotal(0);
           setNextLesson(null);
           setRecentLessons([]);
+          setEvents([]);
         }
       } finally {
-        if (isMounted) setProgressLoading(false);
+        if (isMounted) {
+          setProgressLoading(false);
+          setEventsLoading(false);
+        }
       }
     }
 
@@ -310,11 +347,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4 md:h-full">
               <h2 className="text-xl font-semibold text-primary">Events</h2>
               {/* TODO: Replace stub props with real event data when API is connected */}
-              <EventsListCard
-                events={events}
-                isLoading={eventsLoading}
-                bookSessionHref="#"
-              />
+              <EventsListCard events={events} isLoading={eventsLoading} />
             </div>
           </section>
           <section className="mt-8 flex flex-col gap-4">

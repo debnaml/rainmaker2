@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { collectPresenterNames } from '/lib/presenters';
 import ClockIcon from '~/components/icons/ClockIcon';
 
 function getLessonTypeLabel(lesson) {
@@ -27,35 +28,6 @@ function getLessonSummary(lesson) {
   return candidates.find((value) => typeof value === 'string' && value.trim().length > 0) ?? null;
 }
 
-function getPresenters(lesson) {
-  const rawValues = [
-    lesson?.presenters,
-    lesson?.presenter,
-    lesson?.facilitators,
-    lesson?.facilitator,
-    lesson?.instructors,
-    lesson?.instructor,
-  ];
-
-  const collected = rawValues
-    .flatMap((value) => {
-      if (!value) return [];
-      if (Array.isArray(value)) return value;
-      return [value];
-    })
-    .map((item) => {
-      if (!item) return null;
-      if (typeof item === 'string') return item;
-      if (typeof item.name === 'string') return item.name;
-      if (typeof item.fullName === 'string') return item.fullName;
-      return null;
-    })
-    .filter((name) => typeof name === 'string' && name.trim().length > 0)
-    .map((name) => name.trim());
-
-  const unique = [...new Set(collected)];
-  return unique;
-}
 
 export default function NewestLessonsCard({ lessons = [], isLoading = false }) {
   if (isLoading) {
@@ -97,7 +69,7 @@ export default function NewestLessonsCard({ lessons = [], isLoading = false }) {
         const imageUrl = lesson?.image_url ?? lesson?.imageUrl ?? null;
         const summary = getLessonSummary(lesson);
         const typeDisplay = `${typeLabel}${typeLabel.toLowerCase().includes('lesson') ? '' : ' Lesson'}`;
-        const presenters = getPresenters(lesson);
+        const presenters = collectPresenterNames(lesson);
 
         return (
           <Link
