@@ -9,7 +9,6 @@ import { useAuth } from '/lib/authContext';
 export default function Header({ user }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [lessonsOpen, setLessonsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const router = useRouter();
   const { logout } = useAuth();
@@ -19,29 +18,19 @@ export default function Header({ user }) {
   const toggleMobile = () => {
     setMobileOpen((prev) => !prev);
     setProfileOpen(false);
-    setLessonsOpen(false);
     setAdminOpen(false);
   };
   const closeMobile = () => {
     setMobileOpen(false);
     setProfileOpen(false);
-    setLessonsOpen(false);
     setAdminOpen(false);
   };
   const toggleProfile = () => {
     setProfileOpen((prev) => !prev);
-    setLessonsOpen(false);
     setAdminOpen(false);
   };
-  const toggleLessons = () => {
-    setLessonsOpen((prev) => !prev);
-    setProfileOpen(false);
-    setAdminOpen(false);
-  };
-  const closeLessons = () => setLessonsOpen(false);
   const toggleAdmin = () => {
     setAdminOpen((prev) => !prev);
-    setLessonsOpen(false);
     setProfileOpen(false);
   };
   const closeAdmin = () => setAdminOpen(false);
@@ -75,56 +64,12 @@ export default function Header({ user }) {
         </Link>
 
         <nav className="hidden items-center gap-10 text-base font-normal md:flex">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={toggleLessons}
-              className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 transition hover:text-mint"
-              aria-haspopup="true"
-              aria-expanded={lessonsOpen}
-            >
-              Lessons
-              <span
-                className={`inline-block h-2.5 w-2.5 -translate-y-[3px] border-b-2 border-r-2 border-current transition-transform ${
-                  lessonsOpen ? 'rotate-[225deg]' : 'rotate-45'
-                }`}
-              />
-            </button>
-            {lessonsOpen ? (
-              <div className="absolute left-0 mt-3 w-56 rounded-lg border border-white/10 bg-[#2A153F] py-3 shadow-lg">
-                <nav className="flex flex-col text-sm">
-                  <Link
-                    href="/lessons"
-                    className="px-4 py-2 transition hover:bg-white/10"
-                    onClick={closeLessons}
-                  >
-                    All Lessons
-                  </Link>
-                  <Link
-                    href="/lessons/core"
-                    className="px-4 py-2 transition hover:bg-white/10"
-                    onClick={closeLessons}
-                  >
-                    Core Lessons
-                  </Link>
-                  <Link
-                    href="/lessons/bitesize"
-                    className="px-4 py-2 transition hover:bg-white/10"
-                    onClick={closeLessons}
-                  >
-                    Bitesize Lessons
-                  </Link>
-                  <Link
-                    href="/lessons/favourites"
-                    className="px-4 py-2 transition hover:bg-white/10"
-                    onClick={closeLessons}
-                  >
-                    Favourite Lessons
-                  </Link>
-                </nav>
-              </div>
-            ) : null}
-          </div>
+          <Link href="/lessons/core" className="transition hover:text-mint">
+            How-to Guides
+          </Link>
+          <Link href="/lessons/bitesize" className="transition hover:text-mint">
+            Bitesize Webinars
+          </Link>
           <Link href="/stories" className="transition hover:text-mint">
             Standout Stories
           </Link>
@@ -287,23 +232,15 @@ export default function Header({ user }) {
               </div>
             ) : null}
             <nav className="flex flex-col gap-3 text-base font-normal">
-              <Link href="/lessons" onClick={closeMobile} className="transition hover:text-mint">
-                Lessons
+              <Link href="/lessons/core" onClick={closeMobile} className="transition hover:text-mint">
+                How-to Guides
               </Link>
-              <div className="ml-4 flex flex-col gap-2 text-sm text-white/80">
-                <Link href="/lessons" onClick={closeMobile} className="transition hover:text-mint">
-                  All Lessons
-                </Link>
-                <Link href="/lessons/core" onClick={closeMobile} className="transition hover:text-mint">
-                  Core Lessons
-                </Link>
+              <Link href="/lessons/favourites" onClick={closeMobile} className="transition hover:text-mint">
+                Favourite Lessons
+              </Link>
                 <Link href="/lessons/bitesize" onClick={closeMobile} className="transition hover:text-mint">
-                  Bitesize Lessons
+                  Bitesize Webinars
                 </Link>
-                <Link href="/lessons/favourites" onClick={closeMobile} className="transition hover:text-mint">
-                  Favourite Lessons
-                </Link>
-              </div>
               <Link href="/stories" onClick={closeMobile} className="transition hover:text-mint">
                 Standout Stories
               </Link>

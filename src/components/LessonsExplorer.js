@@ -135,6 +135,7 @@ export default function LessonsExplorer({
   moduleType,
   showFavouritesOnly = false,
   emptyStateMessage = 'No lessons available yet.',
+  showSubNav = true,
 }) {
   const { user, loading: authLoading } = useAuth();
   const [lessons, setLessons] = useState([]);
@@ -269,7 +270,7 @@ export default function LessonsExplorer({
 
   return (
     <div className="flex flex-col">
-      <SubNav items={SUB_NAV_ITEMS} />
+      {showSubNav ? <SubNav items={SUB_NAV_ITEMS} /> : null}
       <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
         <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-[30px]">
           <header className="space-y-2">

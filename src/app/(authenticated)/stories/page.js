@@ -7,6 +7,7 @@ export default function StoriesPage() {
       pageDescription="Discover success stories from Rainmaker teams and partners across the globe."
       moduleType="stories"
       emptyStateMessage="No stories are available yet."
+      showSubNav={false}
     />
   );
 }

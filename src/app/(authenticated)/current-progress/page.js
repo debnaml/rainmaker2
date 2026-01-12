@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import ProgressDonut from '~/components/ProgressDonut';
 import SubNav from '~/components/SubNav';
 import { useAuth } from '/lib/authContext';
 
@@ -161,24 +160,6 @@ export default function CurrentProgressPage() {
     });
   }, [storiesLessons]);
 
-  const coreCompletion = useMemo(() => {
-    if (!coreLessons.length) return 0;
-    const completed = coreLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
-    return Math.round((completed / coreLessons.length) * 100);
-  }, [coreLessons]);
-
-  const bitesizeCompletion = useMemo(() => {
-    if (!bitesizeLessons.length) return 0;
-    const completed = bitesizeLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
-    return Math.round((completed / bitesizeLessons.length) * 100);
-  }, [bitesizeLessons]);
-
-  const storiesCompletion = useMemo(() => {
-    if (!storiesLessons.length) return 0;
-    const completed = storiesLessons.filter((lesson) => lesson.progress?.status === 'completed').length;
-    return Math.round((completed / storiesLessons.length) * 100);
-  }, [storiesLessons]);
-
   const renderLessonItem = (lesson) => {
     const status = lesson.progress?.status ?? 'not_started';
     const normalizedUrl = typeof lesson?.url === 'string' ? lesson.url.trim() : '';
@@ -230,7 +211,7 @@ export default function CurrentProgressPage() {
           <header className="space-y-2">
             <h1 className="pt-[45px] text-left text-3xl font-semibold text-primary">Current Progress</h1>
             <p className="text-base text-textdark/80">
-              Track how you are moving through the core curriculum, quick bitesize refreshers, and upcoming stories.
+              Track how you are moving through the how-to guides, bitesize webinars and standout stories.
             </p>
           </header>
 
@@ -243,19 +224,13 @@ export default function CurrentProgressPage() {
           ) : (
             <div className="grid gap-6 lg:grid-cols-3">
               <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-primary">Core</h2>
-                    <p className="text-xs uppercase tracking-wide text-textdark/50">
-                      {coreLessons.length} lessons
-                    </p>
-                  </div>
-                  <ProgressDonut percent={coreCompletion} color="#331D4C" />
+                <div>
+                  <h2 className="text-2xl font-semibold text-primary">How-to Guides</h2>
                 </div>
 
                 <div className="flex flex-col gap-5">
                   {groupedCore.length === 0 ? (
-                    <p className="text-sm text-textdark/60">No core lessons available yet.</p>
+                    <p className="text-sm text-textdark/60">No how-to guides available yet.</p>
                   ) : (
                     groupedCore.map((module) => (
                       <div key={module.title} className="space-y-1.5">
@@ -272,19 +247,13 @@ export default function CurrentProgressPage() {
               </section>
 
               <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-primary">Bitesize</h2>
-                    <p className="text-xs uppercase tracking-wide text-textdark/50">
-                      {bitesizeLessons.length} lessons
-                    </p>
-                  </div>
-                  <ProgressDonut percent={bitesizeCompletion} />
+                <div>
+                  <h2 className="text-2xl font-semibold text-primary">Bitesize Webinars</h2>
                 </div>
 
                 <div className="space-y-1.5">
                   {bitesizeSorted.length === 0 ? (
-                    <p className="text-sm text-textdark/60">No bitesize lessons available yet.</p>
+                    <p className="text-sm text-textdark/60">No bitesize webinars available yet.</p>
                   ) : (
                     bitesizeSorted.map((lesson) => renderLessonItem(lesson))
                   )}
@@ -292,19 +261,13 @@ export default function CurrentProgressPage() {
               </section>
 
               <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-primary">Stories</h2>
-                    <p className="text-xs uppercase tracking-wide text-textdark/50">
-                      {storiesLessons.length} stories
-                    </p>
-                  </div>
-                  <ProgressDonut percent={storiesCompletion} color="#CBDD51" />
+                <div>
+                  <h2 className="text-2xl font-semibold text-primary">Standout Stories</h2>
                 </div>
 
                 <div className="space-y-1.5">
                   {storiesSorted.length === 0 ? (
-                    <p className="text-sm text-textdark/60">No stories available yet.</p>
+                    <p className="text-sm text-textdark/60">No standout stories available yet.</p>
                   ) : (
                     storiesSorted.map((lesson) => renderLessonItem(lesson))
                   )}
