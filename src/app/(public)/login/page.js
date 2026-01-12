@@ -36,6 +36,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [ssoPending, setSsoPending] = useState(false);
   const ssoEnabled = useMemo(() => process.env.NEXT_PUBLIC_AZURE_AD_SSO_ENABLED === 'true', []);
+  const showDemoLogins = useMemo(() => process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === 'true', []);
 
   useEffect(() => {
     if (user) router.push('/dashboard');
@@ -120,25 +121,27 @@ export default function LoginPage() {
             </button>
           </div>
         ) : null}
-        <div className="space-y-3">
-          {DEMO_USERS.map((preset) => {
-            const isPending = pendingRole === preset.role;
-            return (
-              <button
-                key={preset.role}
-                type="button"
-                onClick={() => handleDemoLogin(preset)}
-                disabled={Boolean(pendingRole)}
-                className="flex w-full flex-col rounded-md bg-primary px-4 py-3 text-left text-white transition-colors hover:bg-action disabled:cursor-not-allowed disabled:bg-primary/60"
-              >
-                <span className="text-sm font-semibold">
-                  {isPending ? 'Signing in…' : preset.label}
-                </span>
-                <span className="text-xs text-white/80">{preset.description}</span>
-              </button>
-            );
-          })}
-        </div>
+        {showDemoLogins ? (
+          <div className="space-y-3">
+            {DEMO_USERS.map((preset) => {
+              const isPending = pendingRole === preset.role;
+              return (
+                <button
+                  key={preset.role}
+                  type="button"
+                  onClick={() => handleDemoLogin(preset)}
+                  disabled={Boolean(pendingRole)}
+                  className="flex w-full flex-col rounded-md bg-primary px-4 py-3 text-left text-white transition-colors hover:bg-action disabled:cursor-not-allowed disabled:bg-primary/60"
+                >
+                  <span className="text-sm font-semibold">
+                    {isPending ? 'Signing in…' : preset.label}
+                  </span>
+                  <span className="text-xs text-white/80">{preset.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
       </div>
     </main>
