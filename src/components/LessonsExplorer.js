@@ -111,7 +111,7 @@ function resolveLessonButtonLabel(lesson) {
   }
 
   if (formatValue.includes('LIVE WEBINAR')) {
-    return 'Join webinar';
+    return 'Book now';
   }
 
   if (formatValue.includes('F2F')) {

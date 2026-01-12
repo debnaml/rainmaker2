@@ -106,6 +106,12 @@ function isVideoType(type) {
   return String(type).toLowerCase().includes('video');
 }
 
+function isLiveWebinarType(type) {
+  if (!type) return false;
+  const normalized = String(type).toLowerCase();
+  return normalized.includes('live webinar');
+}
+
 function ProgressPill({ status }) {
   const label = STATUS_LABELS[status] ?? 'Not started';
   const color = (() => {
@@ -310,7 +316,8 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   const isFaceToFace = isFaceToFaceType(primaryFormat ?? lesson?.format);
   const isPodcast = isPodcastType(primaryFormat ?? lesson?.format);
   const isVideo = isVideoType(primaryFormat ?? lesson?.format);
-  const shouldShowButton = !isFaceToFace && ((isPrimaryFlipsnack || isPodcast || isVideo) || (!hasStarted && !progressBusy));
+  const isLiveWebinar = isLiveWebinarType(primaryFormat ?? lesson?.format);
+  const shouldShowButton = !isFaceToFace && ((isPrimaryFlipsnack || isPodcast || isVideo || isLiveWebinar) || (!hasStarted && !progressBusy));
   const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
   const startButtonLabel = progressBusy
     ? 'Starting…'
@@ -320,7 +327,9 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
         ? 'Play podcast'
         : isVideo
           ? 'Play video'
-          : 'Start lesson';
+          : isLiveWebinar
+            ? 'Book now'
+            : 'Start lesson';
 
   const renderStaticCard = (fallbackMessage) => (
     <div className="relative h-64 overflow-hidden rounded-lg border border-[#D9D9D9] bg-white">
@@ -363,6 +372,23 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
 
     const format = primaryFormat?.toLowerCase() ?? '';
 
+    if (format.includes('live webinar')) {
+      return (
+        <div className="rounded-lg border border-[#D9D9D9] bg-white p-6 text-sm text-textdark/80">
+          <p className="mb-4 font-medium text-textdark/80">Reserve your spot</p>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-action"
+          >
+            Book now
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      );
+    }
+
     if (format.includes('video')) {
       return renderStaticCard('Video will open in a lightbox player.');
     }
@@ -386,7 +412,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   return (
     <div className="relative">
       {renderContent()}
-      {shouldShowButton ? (
+      {shouldShowButton && primaryContent?.url ? (
         <div className="absolute inset-0 overflow-hidden rounded-lg">
           {imageUrl ? (
             <span
@@ -396,14 +422,25 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
             />
           ) : null}
           {imageUrl ? <span aria-hidden="true" className="absolute inset-0 z-10 bg-primary/35 backdrop-blur-[2px]" /> : null}
-          <button
-            type="button"
-            onClick={onStartLesson}
-            disabled={progressBusy}
-            className="relative z-20 flex h-full w-full items-center justify-center bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30 disabled:opacity-80"
-          >
-            <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">{startButtonLabel}</span>
-          </button>
+          {isLiveWebinar ? (
+            <a
+              href={primaryContent.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative z-20 flex h-full w-full items-center justify-center bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30"
+            >
+              <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">Book now</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={onStartLesson}
+              disabled={progressBusy}
+              className="relative z-20 flex h-full w-full items-center justify-center bg-primary/20 backdrop-blur-sm transition hover:bg-primary/30 disabled:opacity-80"
+            >
+              <span className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white shadow-lg">{startButtonLabel}</span>
+            </button>
+          )}
         </div>
       ) : null}
     </div>
