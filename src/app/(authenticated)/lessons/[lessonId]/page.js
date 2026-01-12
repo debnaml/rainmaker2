@@ -101,6 +101,11 @@ function isPodcastType(type) {
   return String(type).toLowerCase().includes('podcast');
 }
 
+function isVideoType(type) {
+  if (!type) return false;
+  return String(type).toLowerCase().includes('video');
+}
+
 function ProgressPill({ status }) {
   const label = STATUS_LABELS[status] ?? 'Not started';
   const color = (() => {
@@ -304,7 +309,8 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   const isPrimaryFlipsnack = isFlipsnackType(primaryFormat);
   const isFaceToFace = isFaceToFaceType(primaryFormat ?? lesson?.format);
   const isPodcast = isPodcastType(primaryFormat ?? lesson?.format);
-  const shouldShowButton = !isFaceToFace && ((isPrimaryFlipsnack || isPodcast) || (!hasStarted && !progressBusy));
+  const isVideo = isVideoType(primaryFormat ?? lesson?.format);
+  const shouldShowButton = !isFaceToFace && ((isPrimaryFlipsnack || isPodcast || isVideo) || (!hasStarted && !progressBusy));
   const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
   const startButtonLabel = progressBusy
     ? 'Starting…'
@@ -312,7 +318,9 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
       ? 'Launch Flipsnack'
       : isPodcast
         ? 'Play podcast'
-        : 'Start lesson';
+        : isVideo
+          ? 'Play video'
+          : 'Start lesson';
 
   const renderStaticCard = (fallbackMessage) => (
     <div className="relative h-64 overflow-hidden rounded-lg border border-[#D9D9D9] bg-white">
@@ -356,17 +364,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
     const format = primaryFormat?.toLowerCase() ?? '';
 
     if (format.includes('video')) {
-      return (
-        <div className="relative h-64 overflow-hidden rounded-lg border border-[#D9D9D9] bg-black">
-          <iframe
-            src={url}
-            title={lesson.title}
-            className="h-full w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      );
+      return renderStaticCard('Video will open in a lightbox player.');
     }
 
     return (
@@ -601,18 +599,24 @@ export default function LessonDetailPage() {
     const hasContentUrl = Boolean(primaryContent?.url);
     const isFlipsnackResource = hasContentUrl && isFlipsnackType(primaryContent?.type);
     const isPodcastResource = hasContentUrl && (isPodcastType(primaryContent?.type) || isPodcastType(lesson?.format));
+    const isVideoResource = hasContentUrl && (isVideoType(primaryContent?.type) || isVideoType(lesson?.format));
 
     if (!alreadyStarted) {
       await handleUpdateProgress({ status: 'in_progress', progressPercent: progress?.progressPercent ?? 0 });
     }
 
-    if (isFlipsnackResource || isPodcastResource) {
+    if (isFlipsnackResource || isPodcastResource || isVideoResource) {
+      const playerTitle =
+        primaryContent?.title ??
+        lesson?.title ??
+        (isPodcastResource ? 'Podcast player' : isVideoResource ? 'Video player' : 'Embedded resource');
+      const allowValue = (isPodcastResource || isVideoResource)
+        ? 'autoplay; fullscreen; picture-in-picture'
+        : 'autoplay; fullscreen';
       setActiveMediaResource({
         ...primaryContent,
-        title: primaryContent?.title ?? lesson?.title ?? (isPodcastResource ? 'Podcast player' : 'Embedded resource'),
-        allow: isPodcastResource
-          ? 'autoplay; fullscreen; picture-in-picture'
-          : 'autoplay; fullscreen',
+        title: playerTitle,
+        allow: allowValue,
       });
     }
   };

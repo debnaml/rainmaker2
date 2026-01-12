@@ -106,6 +106,10 @@ function resolveLessonButtonLabel(lesson) {
     return 'Watch webinar';
   }
 
+  if (formatValue.includes('VIDEO')) {
+    return 'Watch video';
+  }
+
   if (formatValue.includes('LIVE WEBINAR')) {
     return 'Join webinar';
   }
