@@ -181,20 +181,43 @@ export default function CurrentProgressPage() {
 
   const renderLessonItem = (lesson) => {
     const status = lesson.progress?.status ?? 'not_started';
+    const normalizedUrl = typeof lesson?.url === 'string' ? lesson.url.trim() : '';
+    const comingSoon = normalizedUrl.length === 0;
+    const targetHref = lesson.id ? `/lessons/${lesson.id}` : normalizedUrl || '#';
+    const baseClasses = 'flex items-center justify-between gap-2 rounded-md py-2 text-sm text-textdark transition-opacity';
+
+    const content = (
+      <div className="flex flex-1 items-center gap-3">
+        <LessonStatusBadge status={status} />
+        <div className="flex flex-1 flex-col">
+          <span className={`font-medium leading-snug break-words ${comingSoon ? 'text-textdark/50' : 'text-[#237781]'}`}>
+            {lesson.title ?? 'Untitled lesson'}
+          </span>
+          {comingSoon ? (
+            <span className="text-xs font-semibold uppercase tracking-wide text-textdark/40">Coming soon</span>
+          ) : null}
+        </div>
+      </div>
+    );
+
+    if (comingSoon) {
+      return (
+        <div
+          key={lesson.id ?? lesson.title}
+          className={`${baseClasses} cursor-default bg-[#F3F4F6] opacity-70`}
+        >
+          {content}
+        </div>
+      );
+    }
+
     return (
       <Link
         key={lesson.id ?? lesson.title}
-        href={lesson.id ? `/lessons/${lesson.id}` : lesson.url ?? '#'}
-        className="flex items-center justify-between gap-2 py-2 text-sm text-textdark"
+        href={targetHref}
+        className={`${baseClasses} hover:text-primary hover:opacity-100`}
       >
-        <div className="flex flex-1 items-center gap-3">
-          <LessonStatusBadge status={status} />
-          <div className="flex flex-1 flex-col">
-            <span className="font-medium leading-snug text-[#237781] break-words">
-              {lesson.title ?? 'Untitled lesson'}
-            </span>
-          </div>
-        </div>
+        {content}
       </Link>
     );
   };

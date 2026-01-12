@@ -331,7 +331,16 @@ export default function LessonsExplorer({
                       const buttonClasses =
                         'inline-flex items-center self-start rounded-full px-4 py-2 text-sm font-semibold transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white';
 
+                      const hasPrimaryLink = normalizedUrl.length > 0;
                       const viewLessonButton = (() => {
+                        if (!hasPrimaryLink) {
+                          return (
+                            <span className="inline-flex items-center self-start rounded-full bg-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">
+                              Coming soon
+                            </span>
+                          );
+                        }
+
                         if (id) {
                           return (
                             <Link href={`/lessons/${id}`} className={buttonClasses} style={buttonStyle}>
@@ -340,23 +349,19 @@ export default function LessonsExplorer({
                           );
                         }
 
-                        if (normalizedUrl) {
-                          return (
-                            <a
-                              href={normalizedUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={buttonClasses}
-                              style={buttonStyle}
-                            >
-                              {buttonLabel}
-                            </a>
-                          );
-                        }
-
-                        return null;
+                        return (
+                          <a
+                            href={normalizedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={buttonClasses}
+                            style={buttonStyle}
+                          >
+                            {buttonLabel}
+                          </a>
+                        );
                       })();
-                      const shouldShowComingSoon = normalizedUrl.length === 0;
+                      const shouldShowComingSoon = !hasPrimaryLink;
 
                       return (
                         <article
