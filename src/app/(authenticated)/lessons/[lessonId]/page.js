@@ -3,15 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import SubNav from '~/components/SubNav';
 import { useAuth } from '/lib/authContext';
-
-const SUB_NAV_ITEMS = [
-  { label: 'All Lessons', href: '/lessons' },
-  { label: 'Core Lessons', href: '/lessons/core' },
-  { label: 'Bitesize Lessons', href: '/lessons/bitesize' },
-  { label: 'Favourite Lessons', href: '/lessons/favourites' },
-];
 
 const STATUS_LABELS = {
   not_started: 'Not started',
@@ -844,12 +836,11 @@ export default function LessonDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <SubNav items={SUB_NAV_ITEMS} />
       <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
         <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-[30px]">
           <header className="flex flex-col gap-4 border-b border-[#D9D9D9] pb-6 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-3">
-              <h1 className="text-3xl font-semibold text-primary">{lesson.title}</h1>
+            <div className="space-y-3 min-w-0">
+              <h1 className="break-words text-3xl font-semibold text-primary">{lesson.title}</h1>
               <div className="flex flex-wrap items-center gap-3 text-sm text-textdark/70">
                 <ProgressPill status={progress?.status ?? 'not_started'} />
                 <span>{progressPercent}% complete</span>
@@ -860,12 +851,12 @@ export default function LessonDetailPage() {
               type="button"
               onClick={handleToggleFavourite}
               disabled={favouriteBusy}
-              className={`inline-flex items-center gap-2 text-sm font-medium transition ${
+              className={`inline-flex shrink-0 items-center gap-2 rounded-full border border-transparent px-4 py-2 text-sm font-medium transition ${
                 isFavourite ? 'text-primary hover:text-action' : 'text-textdark/70 hover:text-primary'
               } ${favouriteBusy ? 'opacity-60' : ''}`}
             >
               <span aria-hidden="true">{isFavourite ? '★' : '☆'}</span>
-              {isFavourite ? 'Saved to favourites' : 'Save to favourites'}
+              {isFavourite ? 'Saved' : 'Save'}
             </button>
           </header>
 

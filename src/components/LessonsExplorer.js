@@ -455,7 +455,7 @@ export default function LessonsExplorer({
                     type="search"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search lessons"
+                    placeholder="Search resources"
                     className="w-full rounded-md border border-[#D9D9D9] bg-white px-3 py-2 text-sm text-textdark focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
