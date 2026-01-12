@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '/lib/authContext';
 import { collectPresenterNames } from '/lib/presenters';
-import ContinueLearningCard from '~/components/dashboard/ContinueLearningCard';
 import EventsListCard from '~/components/dashboard/EventsListCard';
 import LiveEventsCard from '~/components/dashboard/LiveEventsCard';
 import NewestLessonsCard from '~/components/dashboard/NewestLessonsCard';
@@ -21,61 +20,24 @@ const ROLE_PARAM_FALLBACK = 'normal';
 const LIVE_EVENT_KEYWORDS = ['live webinar', 'f2f', 'workshop', 'teams workshop'];
 const SHOW_PROGRESS_STRIP = false;
 const LAUNCH_DAY_DECK_PATH = '/launch-day-deck.pdf';
+const WORKSHOP_IMAGE_FALLBACK = '/images/rm-bg.jpg';
 
-function normalizeModuleType(value) {
-  if (typeof value !== 'string') return null;
-  return value.toLowerCase();
-}
-
-function sortLessons(lessons) {
-  return [...lessons].sort((a, b) => {
-    const moduleSeqA = a?.module?.sequence ?? 9999;
-    const moduleSeqB = b?.module?.sequence ?? 9999;
-    if (moduleSeqA !== moduleSeqB) return moduleSeqA - moduleSeqB;
-
-    const lessonSeqA = a?.sequence ?? 9999;
-    const lessonSeqB = b?.sequence ?? 9999;
-    if (lessonSeqA !== lessonSeqB) return lessonSeqA - lessonSeqB;
-
-    return (a?.title ?? '').localeCompare(b?.title ?? '');
-  });
-}
-
-function isLessonCompleted(lesson) {
-  const status = lesson?.progress?.status;
-  if (status === 'completed') return true;
-  const percent = Number(lesson?.progress?.progressPercent);
-  return Number.isFinite(percent) && percent >= 100;
-}
-
-function isLessonInProgress(lesson) {
-  const status = lesson?.progress?.status;
-  if (status === 'in_progress') return true;
-  const percent = Number(lesson?.progress?.progressPercent);
-  return Number.isFinite(percent) && percent > 0 && percent < 100;
-}
-
-function selectNextLesson(allLessons, desiredType) {
-  const filtered = allLessons.filter((lesson) => {
-    const moduleType = normalizeModuleType(lesson?.module?.type);
-    if (!desiredType) return true;
-    if (moduleType) return moduleType === desiredType;
-    if (desiredType === 'bitesize') {
-      const format = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
-      return format.includes('bite');
-    }
-    return false;
-  });
-
-  if (!filtered.length) return null;
-
-  const sorted = sortLessons(filtered);
-  const active = sorted.find((lesson) => isLessonInProgress(lesson) && !isLessonCompleted(lesson));
-  if (active) return active;
-
-  const pending = sorted.find((lesson) => !isLessonCompleted(lesson));
-  return pending ?? null;
-}
+const WORKSHOP_SPOTLIGHT = {
+  eyebrow: 'Deborah Hall · Public speaking',
+  title: 'Being a Trusted Adviser',
+  bulletPoints: ['Be a Trusted Adviser', 'Presenting with Impact', 'Personal Style'],
+  highlights: [
+    { label: 'Facilitator', value: 'Deborah Hall' },
+    { label: 'Duration', value: 'Half day' },
+    { label: 'Format', value: 'In-person workshop' },
+  ],
+  sessionDates: ['23 Feb', '24 Feb', '3 Mar'],
+  ctaLabel: 'Book now',
+  ctaHref: 'https://birketts.kallidus-suite.com/learn/#/course/bfd0c2e4-5af6-4ada-89ee-e41eec259300',
+  backgroundImage: '/images/deborah-hall-workshop.jpg',
+  imageSrc: '/images/deborah-hall-workshop.jpg',
+  imageAlt: 'Deborah Hall leading a trusted advisor workshop',
+};
 
 function extractLessonTimestamp(lesson) {
   const rawDate = lesson?.created_at ?? lesson?.createdAt ?? lesson?.published_at ?? lesson?.publishedAt ?? null;
@@ -134,13 +96,13 @@ function serializeEventLesson(lesson) {
   };
 }
 
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [overallProgress, setOverallProgress] = useState(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [liveEventsCompleted, setLiveEventsCompleted] = useState(0);
   const [liveEventsTotal, setLiveEventsTotal] = useState(0);
-  const [nextLesson, setNextLesson] = useState(null);
   const [recentLessons, setRecentLessons] = useState([]);
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -173,8 +135,8 @@ export default function DashboardPage() {
           setOverallProgress(0);
           setLiveEventsCompleted(0);
           setLiveEventsTotal(0);
-          setNextLesson(null);
           setRecentLessons([]);
+          setEvents([]);
           return;
         }
 
@@ -208,20 +170,12 @@ export default function DashboardPage() {
         setLiveEventsTotal(liveTotal);
         setLiveEventsCompleted(liveCompletedCount);
 
-        const nextCoreLesson = selectNextLesson(lessons, 'core');
-        if (nextCoreLesson) {
-          setNextLesson(nextCoreLesson);
-        } else {
-          const nextBitesizeLesson = selectNextLesson(lessons, 'bitesize');
-          setNextLesson(nextBitesizeLesson ?? null);
-        }
-
         const newestSource = lessons.filter(hasLessonLink);
         const newest = sortByNewestLessons(newestSource).slice(0, 4);
         setRecentLessons(newest);
-
         const liveEventLessons = lessons.filter(isLiveEventLesson).slice(0, 4).map(serializeEventLesson);
         setEvents(liveEventLessons);
+
       } catch (error) {
         if (error.name === 'AbortError') return;
         console.error('Failed to load overall progress', error);
@@ -229,7 +183,6 @@ export default function DashboardPage() {
           setOverallProgress(0);
           setLiveEventsCompleted(0);
           setLiveEventsTotal(0);
-          setNextLesson(null);
           setRecentLessons([]);
           setEvents([]);
         }
@@ -301,6 +254,18 @@ export default function DashboardPage() {
 
   const firstName = user?.name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
   const inPeerGroup = Boolean(user?.peerGroupId);
+  const workshopBackgroundImage = WORKSHOP_SPOTLIGHT.backgroundImage || WORKSHOP_IMAGE_FALLBACK;
+  const workshopImageSrc = WORKSHOP_SPOTLIGHT.imageSrc || WORKSHOP_IMAGE_FALLBACK;
+  const workshopImageAlt = WORKSHOP_SPOTLIGHT.imageAlt ?? 'Workshop illustration';
+
+  function handleWorkshopImageError(event) {
+    const fallbackAlreadyApplied = event?.currentTarget?.dataset?.fallback === 'true';
+    if (fallbackAlreadyApplied) return;
+    // eslint-disable-next-line no-param-reassign
+    event.currentTarget.src = WORKSHOP_IMAGE_FALLBACK;
+    // eslint-disable-next-line no-param-reassign
+    event.currentTarget.dataset.fallback = 'true';
+  }
 
   return (
     <div className="flex flex-col">
@@ -361,9 +326,71 @@ export default function DashboardPage() {
             </section>
           ) : null}
           <section className="mt-8 grid w-full grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="flex flex-col gap-4 md:col-span-2">
-              <h2 className="text-xl font-semibold text-primary">Continue Learning</h2>
-              <ContinueLearningCard lesson={nextLesson} isLoading={progressLoading} />
+            <div className="flex h-full flex-col gap-4 md:col-span-2 md:h-full">
+              <h2 className="text-xl font-semibold text-primary">Next Steps</h2>
+              <section
+                className="relative flex h-full flex-col overflow-hidden rounded-[5px] border border-white/20 bg-primary text-white shadow-sm"
+                style={{
+                  backgroundImage: `linear-gradient(135deg, rgba(41,16,82,0.95), rgba(120,82,186,0.85)), url(${workshopBackgroundImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                <div className="grid h-full w-full gap-6 bg-gradient-to-br from-black/40 via-transparent to-black/30 p-6 md:grid-cols-[1.1fr_0.9fr]">
+                  <div className="flex h-full flex-col gap-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
+                      {WORKSHOP_SPOTLIGHT.eyebrow}
+                    </p>
+                    <h3 className="text-2xl font-semibold leading-tight md:text-3xl">{WORKSHOP_SPOTLIGHT.title}</h3>
+                    <div className="flex flex-col gap-2">
+                      <ul className="ml-4 list-disc space-y-1 text-sm text-white/85">
+                        {WORKSHOP_SPOTLIGHT.bulletPoints.map((point) => (
+                          <li key={point}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">Session dates</p>
+                      <p className="text-sm font-medium text-white">
+                        {WORKSHOP_SPOTLIGHT.sessionDates.join(' · ')}
+                      </p>
+                    </div>
+                    <div className="mt-auto pt-4">
+                      <a
+                        href={WORKSHOP_SPOTLIGHT.ctaHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold uppercase tracking-wide text-primary transition hover:bg-lavender"
+                      >
+                        {WORKSHOP_SPOTLIGHT.ctaLabel}
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-5 rounded-2xl bg-white/10 p-4 backdrop-blur">
+                    <div className="relative h-44 w-full overflow-hidden rounded-xl border border-white/20">
+                      <img
+                        src={workshopImageSrc}
+                        alt={workshopImageAlt}
+                        loading="lazy"
+                        onError={handleWorkshopImageError}
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-tr from-black/30 via-transparent to-black/10" aria-hidden="true" />
+                    </div>
+                    <dl className="grid gap-3 text-sm">
+                      {WORKSHOP_SPOTLIGHT.highlights.map((item) => (
+                        <div
+                          key={item.label}
+                          className="flex items-center justify-between gap-3 border-b border-white/10 pb-2 last:border-0 last:pb-0"
+                        >
+                          <dt className="text-white/70">{item.label}</dt>
+                          <dd className="font-semibold text-white">{item.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </div>
+              </section>
             </div>
             <div className="flex flex-col gap-4 md:h-full">
               <h2 className="text-xl font-semibold text-primary">Events</h2>
