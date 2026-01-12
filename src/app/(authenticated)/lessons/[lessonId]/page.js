@@ -112,6 +112,12 @@ function isLiveWebinarType(type) {
   return normalized.includes('live webinar');
 }
 
+function isWorkshopType(type) {
+  if (!type) return false;
+  const normalized = String(type).toLowerCase();
+  return normalized.includes('workshop');
+}
+
 function ProgressPill({ status }) {
   const label = STATUS_LABELS[status] ?? 'Not started';
   const color = (() => {
@@ -317,7 +323,9 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   const isPodcast = isPodcastType(primaryFormat ?? lesson?.format);
   const isVideo = isVideoType(primaryFormat ?? lesson?.format);
   const isLiveWebinar = isLiveWebinarType(primaryFormat ?? lesson?.format);
-  const shouldShowButton = !isFaceToFace && ((isPrimaryFlipsnack || isPodcast || isVideo || isLiveWebinar) || (!hasStarted && !progressBusy));
+  const isWorkshop = isWorkshopType(primaryFormat ?? lesson?.format);
+  const shouldShowButton =
+    !isFaceToFace && ((isPrimaryFlipsnack || isPodcast || isVideo || isLiveWebinar || isWorkshop) || (!hasStarted && !progressBusy));
   const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
   const startButtonLabel = progressBusy
     ? 'Starting…'
@@ -327,7 +335,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
         ? 'Play podcast'
         : isVideo
           ? 'Play video'
-          : isLiveWebinar
+          : isLiveWebinar || isWorkshop
             ? 'Book now'
             : 'Start lesson';
 
@@ -372,7 +380,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
 
     const format = primaryFormat?.toLowerCase() ?? '';
 
-    if (format.includes('live webinar')) {
+    if (format.includes('live webinar') || format.includes('workshop')) {
       return (
         <div className="rounded-lg border border-[#D9D9D9] bg-white p-6 text-sm text-textdark/80">
           <p className="mb-4 font-medium text-textdark/80">Reserve your spot</p>
@@ -422,7 +430,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
             />
           ) : null}
           {imageUrl ? <span aria-hidden="true" className="absolute inset-0 z-10 bg-primary/35 backdrop-blur-[2px]" /> : null}
-          {isLiveWebinar ? (
+          {isLiveWebinar || isWorkshop ? (
             <a
               href={primaryContent.url}
               target="_blank"

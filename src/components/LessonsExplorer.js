@@ -111,7 +111,7 @@ function resolveLessonButtonLabel(lesson) {
   }
 
   if (formatValue.includes('LIVE WEBINAR')) {
-    return 'Book now';
+    return 'Book Now';
   }
 
   if (formatValue.includes('F2F')) {
@@ -119,7 +119,7 @@ function resolveLessonButtonLabel(lesson) {
   }
 
   if (formatValue === 'WORKSHOP' || formatValue.includes('TEAMS WORKSHOP')) {
-    return 'Join workshop';
+    return 'Book Now';
   }
 
   if (formatValue.includes('FLIPSNACK')) {
