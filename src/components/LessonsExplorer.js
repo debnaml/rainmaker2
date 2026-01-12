@@ -103,7 +103,7 @@ function resolveLessonButtonLabel(lesson) {
   }
 
   if (formatValue.includes('PRE-RECORDED WEBINAR')) {
-    return 'Watch webinar';
+    return 'Play webinar';
   }
 
   if (formatValue.includes('VIDEO')) {
