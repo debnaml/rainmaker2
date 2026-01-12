@@ -26,18 +26,6 @@ function normalizeModuleType(value) {
   return value.toLowerCase();
 }
 
-function isCoreOrBitesizeLesson(lesson) {
-  const moduleType = normalizeModuleType(lesson?.module?.type);
-  if (moduleType === 'core' || moduleType === 'bitesize') return true;
-
-  if (!moduleType) {
-    const format = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
-    if (format.includes('core') || format.includes('bite')) return true;
-  }
-
-  return false;
-}
-
 function sortLessons(lessons) {
   return [...lessons].sort((a, b) => {
     const moduleSeqA = a?.module?.sequence ?? 9999;
@@ -89,18 +77,18 @@ function selectNextLesson(allLessons, desiredType) {
 }
 
 function extractLessonTimestamp(lesson) {
-  const rawDate =
-    lesson?.created_at ??
-    lesson?.createdAt ??
-    lesson?.published_at ??
-    lesson?.publishedAt ??
-    lesson?.updated_at ??
-    lesson?.updatedAt ??
-    null;
+  const rawDate = lesson?.created_at ?? lesson?.createdAt ?? lesson?.published_at ?? lesson?.publishedAt ?? null;
 
   if (!rawDate) return null;
   const timestamp = new Date(rawDate).getTime();
   return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function hasLessonLink(lesson) {
+  if (!lesson) return false;
+  if (lesson.id) return true;
+  const url = typeof lesson?.url === 'string' ? lesson.url.trim() : '';
+  return url.length > 0;
 }
 
 function sortByNewestLessons(lessons) {
@@ -227,7 +215,7 @@ export default function DashboardPage() {
           setNextLesson(nextBitesizeLesson ?? null);
         }
 
-        const newestSource = lessons.filter(isCoreOrBitesizeLesson);
+        const newestSource = lessons.filter(hasLessonLink);
         const newest = sortByNewestLessons(newestSource).slice(0, 4);
         setRecentLessons(newest);
 
@@ -354,7 +342,7 @@ export default function DashboardPage() {
             </div>
           </section>
           <section className="mt-8 flex flex-col gap-4">
-            <h2 className="text-xl font-semibold text-primary">Newest Lessons</h2>
+            <h2 className="text-xl font-semibold text-primary">Featured</h2>
             <NewestLessonsCard lessons={recentLessons} isLoading={progressLoading} />
           </section>
           

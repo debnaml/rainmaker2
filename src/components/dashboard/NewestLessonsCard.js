@@ -7,12 +7,16 @@ function getLessonTypeLabel(lesson) {
   const moduleType = lesson?.module?.type;
   if (typeof moduleType === 'string' && moduleType.length > 0) {
     const lower = moduleType.toLowerCase();
-    if (lower === 'core') return 'Core';
-    if (lower === 'bitesize') return 'Bitesize';
+    if (lower === 'core') return 'How-to Guide';
+    if (lower === 'bitesize') return 'Bitesize Webinar';
+    if (lower === 'stories' || lower === 'story' || lower === 'storytelling') return 'Standout Story';
     return moduleType;
   }
-  const format = lesson?.format;
-  return typeof format === 'string' && format.length > 0 ? format : 'Lesson';
+  const format = typeof lesson?.format === 'string' ? lesson.format.toLowerCase() : '';
+  if (format.includes('story')) return 'Standout Story';
+  if (format.includes('core')) return 'How-to Guide';
+  if (format.includes('bite')) return 'Bitesize Webinar';
+  return 'Lesson';
 }
 
 function getLessonSummary(lesson) {
@@ -68,7 +72,7 @@ export default function NewestLessonsCard({ lessons = [], isLoading = false }) {
         const durationLabel = lesson?.duration ?? null;
         const imageUrl = lesson?.image_url ?? lesson?.imageUrl ?? null;
         const summary = getLessonSummary(lesson);
-        const typeDisplay = `${typeLabel}${typeLabel.toLowerCase().includes('lesson') ? '' : ' Lesson'}`;
+        const typeDisplay = typeLabel;
         const presenters = collectPresenterNames(lesson);
 
         return (
