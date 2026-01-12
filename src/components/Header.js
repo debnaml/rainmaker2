@@ -218,13 +218,6 @@ export default function Header({ user }) {
               <div className="absolute right-0 mt-3 w-56 rounded-lg border border-white/10 bg-[#2A153F] py-3 shadow-lg">
                 <nav className="flex flex-col text-sm">
                   <Link
-                    href="/profile"
-                    className="px-4 py-2 transition hover:bg-white/10"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <Link
                     href="/lessons/favourites"
                     className="px-4 py-2 transition hover:bg-white/10"
                     onClick={() => setProfileOpen(false)}
