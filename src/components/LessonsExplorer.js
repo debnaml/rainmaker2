@@ -99,7 +99,7 @@ function resolveLessonButtonLabel(lesson) {
   const formatValue = formatValueRaw.trim().toUpperCase();
 
   if (formatValue.includes('PODCAST')) {
-    return 'Watch podcast';
+    return 'Play podcast';
   }
 
   if (formatValue.includes('PRE-RECORDED WEBINAR')) {

@@ -204,11 +204,7 @@ function ModuleProgressList({ lessons, currentLessonId }) {
 
 function ResourcesList({ resources, onOpenEmbeddedResource }) {
   if (!Array.isArray(resources) || resources.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-primary/30 bg-white/50 p-4 text-sm text-textdark/60">
-        No additional resources yet.
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -611,6 +607,8 @@ export default function LessonDetailPage() {
       .filter((name) => name.length > 0);
   }, [lesson?.presenters]);
   const presenterLabel = presenterNames.length === 1 ? 'Presenter' : 'Presenters';
+  const hasResources = Array.isArray(lesson?.resources) && lesson.resources.length > 0;
+  const SHOW_MODULE_PROGRESS = false;
 
   const handleUpdateProgress = async (updates) => {
     if (progressBusy) return;
@@ -997,15 +995,11 @@ export default function LessonDetailPage() {
 
             <aside className="space-y-6">
               <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
-                <h2 className="text-lg font-semibold text-primary">Lesson details</h2>
+                <h2 className="text-lg font-semibold text-primary">Details</h2>
                 <dl className="mt-4 space-y-3 text-sm text-textdark/80">
                   <div className="flex justify-between">
                     <dt className="text-textdark/60">Module</dt>
                     <dd className="font-medium text-primary">{lesson.module?.title ?? 'Independent lesson'}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-textdark/60">Type</dt>
-                    <dd className="font-medium text-textdark/80">{moduleTypeLabel}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-textdark/60">Format</dt>
@@ -1024,22 +1018,26 @@ export default function LessonDetailPage() {
                 </dl>
               </div>
 
-              <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
-                <h2 className="text-lg font-semibold text-primary">Resources</h2>
-                <div className="mt-4">
-                  <ResourcesList resources={lesson.resources} onOpenEmbeddedResource={handleOpenEmbeddedResource} />
+              {hasResources ? (
+                <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
+                  <h2 className="text-lg font-semibold text-primary">Resources</h2>
+                  <div className="mt-4">
+                    <ResourcesList resources={lesson.resources} onOpenEmbeddedResource={handleOpenEmbeddedResource} />
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
-              <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-primary">Course progress</h2>
-                  <span className="text-xs uppercase tracking-wide text-textdark/50">Module view</span>
+              {SHOW_MODULE_PROGRESS ? (
+                <div className="rounded-lg border border-[#D9D9D9] bg-white p-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-primary">Course progress</h2>
+                    <span className="text-xs uppercase tracking-wide text-textdark/50">Module view</span>
+                  </div>
+                  <div className="mt-4">
+                    <ModuleProgressList lessons={moduleLessons} currentLessonId={lesson.id} />
+                  </div>
                 </div>
-                <div className="mt-4">
-                  <ModuleProgressList lessons={moduleLessons} currentLessonId={lesson.id} />
-                </div>
-              </div>
+              ) : null}
             </aside>
           </div>
         </div>

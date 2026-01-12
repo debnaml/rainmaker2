@@ -126,7 +126,7 @@ export default function Header({ user }) {
             ) : null}
           </div>
           <Link href="/stories" className="transition hover:text-mint">
-            Stories
+            Standout Stories
           </Link>
           <Link href="/leaders" className="transition hover:text-mint">
             Faculty
@@ -305,7 +305,7 @@ export default function Header({ user }) {
                 </Link>
               </div>
               <Link href="/stories" onClick={closeMobile} className="transition hover:text-mint">
-                Stories
+                Standout Stories
               </Link>
               <Link href="/leaders" onClick={closeMobile} className="transition hover:text-mint">
                 Faculty
