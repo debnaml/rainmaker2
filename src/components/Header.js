@@ -129,7 +129,7 @@ export default function Header({ user }) {
             Stories
           </Link>
           <Link href="/leaders" className="transition hover:text-mint">
-            Leaders
+            Faculty
           </Link>
           {isAdmin ? (
             <div className="relative">
@@ -176,7 +176,7 @@ export default function Header({ user }) {
                       className="px-4 py-2 transition hover:bg-white/10"
                       onClick={closeAdmin}
                     >
-                      Leaders
+                      Faculty
                     </Link>
                     <Link
                       href="/admin/reports"
@@ -308,7 +308,7 @@ export default function Header({ user }) {
                 Stories
               </Link>
               <Link href="/leaders" onClick={closeMobile} className="transition hover:text-mint">
-                Leaders
+                Faculty
               </Link>
               {isAdmin ? (
                 <>
@@ -326,7 +326,7 @@ export default function Header({ user }) {
                       Content
                     </Link>
                     <Link href="/admin/leaders" onClick={closeMobile} className="transition hover:text-mint">
-                      Leaders
+                      Faculty
                     </Link>
                     <Link href="/admin/reports" onClick={closeMobile} className="transition hover:text-mint">
                       Reports

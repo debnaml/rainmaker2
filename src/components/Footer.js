@@ -11,7 +11,7 @@ const footerLinks = [
       { label: 'Core Lessons', href: '/lessons/core' },
       { label: 'Bitesize Lessons', href: '/lessons/bitesize' },
       { label: 'Stories', href: '/stories' },
-      { label: 'Leaders', href: '/leaders' },
+      { label: 'Faculty', href: '/leaders' },
     ],
   },
   {

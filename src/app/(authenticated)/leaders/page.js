@@ -74,19 +74,19 @@ export default function LeadersPage() {
     <main className="min-h-[calc(100vh-130px)] bg-purplebg text-textdark">
       <div className="mx-auto w-full max-w-6xl px-6 py-[30px]">
         <header className="space-y-2">
-          <h1 className="pt-[45px] text-left text-3xl font-semibold text-primary">Leaders</h1>
+          <h1 className="pt-[45px] text-left text-3xl font-semibold text-primary">Faculty</h1>
           <p className="text-base text-textdark/80">
-            Meet the speakers who bring Rainmaker to life. Learn more about their experience and the organisations they have supported.
+            Meet the faculty who bring Rainmaker to life. Learn more about their experience and the organisations they have supported.
           </p>
         </header>
 
         <section className="mt-8">
           {loading ? (
-            <p className="text-sm text-textdark/70">Loading leaders…</p>
+            <p className="text-sm text-textdark/70">Loading faculty…</p>
           ) : error ? (
             <p className="text-sm text-red-600">{error}</p>
           ) : leaders.length === 0 ? (
-            <p className="text-sm text-textdark/70">No leaders have been added yet.</p>
+            <p className="text-sm text-textdark/70">No faculty have been added yet.</p>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {leaders.map((leader) => (

@@ -19,6 +19,7 @@ const SUB_NAV_ITEMS = [
 
 const ROLE_PARAM_FALLBACK = 'normal';
 const LIVE_EVENT_KEYWORDS = ['live webinar', 'f2f', 'workshop', 'teams workshop'];
+const SHOW_PROGRESS_STRIP = false;
 
 function normalizeModuleType(value) {
   if (typeof value !== 'string') return null;
@@ -320,25 +321,27 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-semibold text-primary pt-[45px] mb-[30px] text-left">
             {`Welcome back, ${firstName}!`}
           </h1>
-          <section className="grid min-h-[120px] w-full grid-cols-1 overflow-hidden rounded-[5px] bg-white md:grid-cols-3">
-            <OverallProgressCard
-              percent={overallProgress ?? 0}
-              isLoading={progressLoading}
-              linkHref="/current-progress"
-            />
-            <PeerLeaderboardCard
-              position={leaderboardPosition}
-              isLoading={leaderboardLoading}
-              disabled={!inPeerGroup}
-              linkHref="/leaderboard"
-            />
-            <LiveEventsCard
-              completed={liveEventsCompleted}
-              total={liveEventsTotal}
-              isLoading={progressLoading}
+          {SHOW_PROGRESS_STRIP ? (
+            <section className="grid min-h-[120px] w-full grid-cols-1 overflow-hidden rounded-[5px] bg-white md:grid-cols-3">
+              <OverallProgressCard
+                percent={overallProgress ?? 0}
+                isLoading={progressLoading}
+                linkHref="/current-progress"
+              />
+              <PeerLeaderboardCard
+                position={leaderboardPosition}
+                isLoading={leaderboardLoading}
+                disabled={!inPeerGroup}
+                linkHref="/leaderboard"
+              />
+              <LiveEventsCard
+                completed={liveEventsCompleted}
+                total={liveEventsTotal}
+                isLoading={progressLoading}
                 disabled
-            />
-          </section>
+              />
+            </section>
+          ) : null}
           <section className="mt-8 grid w-full grid-cols-1 gap-6 md:grid-cols-3">
             <div className="flex flex-col gap-4 md:col-span-2">
               <h2 className="text-xl font-semibold text-primary">Continue Learning</h2>

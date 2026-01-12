@@ -101,8 +101,19 @@ function isPodcastType(type) {
   return String(type).toLowerCase().includes('podcast');
 }
 
+function isPreRecordedWebinarType(type) {
+  if (!type) return false;
+  const normalized = String(type).toLowerCase();
+  return (
+    normalized.includes('pre-recorded webinar') ||
+    normalized.includes('pre recorded webinar') ||
+    normalized.includes('prerecorded webinar')
+  );
+}
+
 function isVideoType(type) {
   if (!type) return false;
+  if (isPreRecordedWebinarType(type)) return true;
   return String(type).toLowerCase().includes('video');
 }
 
@@ -318,12 +329,13 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
   const hasStarted = progress?.status && progress.status !== 'not_started';
   const primaryContent = lesson?.primaryContent;
   const primaryFormat = primaryContent?.type;
+  const lessonFormat = lesson?.format;
   const isPrimaryFlipsnack = isFlipsnackType(primaryFormat);
-  const isFaceToFace = isFaceToFaceType(primaryFormat ?? lesson?.format);
-  const isPodcast = isPodcastType(primaryFormat ?? lesson?.format);
-  const isVideo = isVideoType(primaryFormat ?? lesson?.format);
-  const isLiveWebinar = isLiveWebinarType(primaryFormat ?? lesson?.format);
-  const isWorkshop = isWorkshopType(primaryFormat ?? lesson?.format);
+  const isFaceToFace = isFaceToFaceType(primaryFormat) || isFaceToFaceType(lessonFormat);
+  const isPodcast = isPodcastType(primaryFormat) || isPodcastType(lessonFormat);
+  const isVideo = isVideoType(primaryFormat) || isVideoType(lessonFormat);
+  const isLiveWebinar = isLiveWebinarType(primaryFormat) || isLiveWebinarType(lessonFormat);
+  const isWorkshop = isWorkshopType(primaryFormat) || isWorkshopType(lessonFormat);
   const shouldShowButton =
     !isFaceToFace && ((isPrimaryFlipsnack || isPodcast || isVideo || isLiveWebinar || isWorkshop) || (!hasStarted && !progressBusy));
   const imageUrl = lesson?.imageUrl ?? lesson?.image_url ?? null;
@@ -378,9 +390,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
       return renderStaticCard('Podcast will open in a full-screen player.');
     }
 
-    const format = primaryFormat?.toLowerCase() ?? '';
-
-    if (format.includes('live webinar') || format.includes('workshop')) {
+    if (isLiveWebinar || isWorkshop) {
       return (
         <div className="rounded-lg border border-[#D9D9D9] bg-white p-6 text-sm text-textdark/80">
           <p className="mb-4 font-medium text-textdark/80">Reserve your spot</p>
@@ -397,7 +407,7 @@ function LessonContent({ lesson, progress, onStartLesson, progressBusy }) {
       );
     }
 
-    if (format.includes('video')) {
+    if (isVideo) {
       return renderStaticCard('Video will open in a lightbox player.');
     }
 
