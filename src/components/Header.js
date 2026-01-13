@@ -56,7 +56,7 @@ export default function Header({ user }) {
 
         <nav className="hidden items-center gap-10 text-base font-normal md:flex">
           <Link href="/lessons/core" className="transition hover:text-mint">
-            How-to Guides
+            Playbooks
           </Link>
           <Link href="/lessons/bitesize" className="transition hover:text-mint">
             Bitesize Webinars
@@ -100,13 +100,6 @@ export default function Header({ user }) {
                     onClick={() => setProfileOpen(false)}
                   >
                     Favourites
-                  </Link>
-                  <Link
-                    href="/leaderboard"
-                    className="px-4 py-2 transition hover:bg-white/10"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    Leaderboard
                   </Link>
                   {isAdmin ? (
                     <div className="mt-2 border-t border-white/10 pt-2">
@@ -207,7 +200,7 @@ export default function Header({ user }) {
             ) : null}
             <nav className="flex flex-col gap-3 text-base font-normal">
               <Link href="/lessons/core" onClick={closeMobile} className="transition hover:text-mint">
-                How-to Guides
+                Playbooks
               </Link>
               <Link href="/lessons/favourites" onClick={closeMobile} className="transition hover:text-mint">
                 Favourite Lessons

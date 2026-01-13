@@ -5,12 +5,11 @@ import Link from 'next/link';
 
 const footerLinks = [
   {
-    title: 'Lessons',
+    title: 'Resources',
     items: [
-      { label: 'All Lessons', href: '/lessons' },
-      { label: 'Core Lessons', href: '/lessons/core' },
-      { label: 'Bitesize Lessons', href: '/lessons/bitesize' },
-      { label: 'Stories', href: '/stories' },
+      { label: 'Playbooks', href: '/lessons/core' },
+      { label: 'Bitesize Webinars', href: '/lessons/bitesize' },
+      { label: 'Standout Stories', href: '/stories' },
       { label: 'Faculty', href: '/leaders' },
     ],
   },
@@ -19,7 +18,6 @@ const footerLinks = [
     items: [
       { label: 'Dashboard', href: '/dashboard' },
       { label: 'Current Progress', href: '/current-progress' },
-      { label: 'Leaderboard', href: '/leaderboard' },
     ],
   },
   {
