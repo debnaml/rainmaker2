@@ -7,7 +7,6 @@ import SubNav from '~/components/SubNav';
 const SUB_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Current Progress', href: '/current-progress' },
-  { label: 'Leaderboard', href: '/leaderboard' },
 ];
 
 const MOVEMENT_LABELS = {

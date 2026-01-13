@@ -133,6 +133,7 @@ export default function LessonsExplorer({
   pageTitle,
   pageDescription,
   moduleType,
+  moduleTitle = null,
   showFavouritesOnly = false,
   emptyStateMessage = 'No lessons available yet.',
   showSubNav = true,
@@ -147,6 +148,11 @@ export default function LessonsExplorer({
   const [durationFilter, setDurationFilter] = useState('all');
 
   const roleParam = useMemo(() => user?.role ?? ROLE_PARAM_FALLBACK, [user?.role]);
+  const normalizedModuleTitle = useMemo(() => {
+    if (typeof moduleTitle !== 'string') return null;
+    const trimmed = moduleTitle.trim();
+    return trimmed.length ? trimmed.toLowerCase() : null;
+  }, [moduleTitle]);
   const userId = user?.id ?? null;
   const favouritesFor = showFavouritesOnly ? userId : null;
 
@@ -251,7 +257,14 @@ export default function LessonsExplorer({
 
         if (!isMounted) return;
 
-        setLessons(Array.isArray(payload.lessons) ? payload.lessons : []);
+        let nextLessons = Array.isArray(payload.lessons) ? payload.lessons : [];
+        if (normalizedModuleTitle) {
+          nextLessons = nextLessons.filter((lesson) => {
+            const title = typeof lesson?.module?.title === 'string' ? lesson.module.title.trim().toLowerCase() : '';
+            return title === normalizedModuleTitle;
+          });
+        }
+        setLessons(nextLessons);
       } catch (err) {
         if (!isMounted) return;
         console.error('Failed to fetch lessons', err);
@@ -266,7 +279,7 @@ export default function LessonsExplorer({
     return () => {
       isMounted = false;
     };
-  }, [roleParam, moduleType, favouritesFor, authLoading, showFavouritesOnly]);
+  }, [roleParam, moduleType, favouritesFor, authLoading, showFavouritesOnly, normalizedModuleTitle]);
 
   return (
     <div className="flex flex-col">

@@ -8,7 +8,6 @@ import { useAuth } from '/lib/authContext';
 const SUB_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Current Progress', href: '/current-progress' },
-  { label: 'Leaderboard', href: '/leaderboard' },
 ];
 
 const ROLE_PARAM_FALLBACK = 'normal';
@@ -92,7 +91,12 @@ export default function CurrentProgressPage() {
 
         if (!isMounted) return;
 
-        setCoreLessons(Array.isArray(corePayload.lessons) ? corePayload.lessons : []);
+        const coreLessonsRaw = Array.isArray(corePayload.lessons) ? corePayload.lessons : [];
+        const playbookLessons = coreLessonsRaw.filter((lesson) => {
+          const title = typeof lesson?.module?.title === 'string' ? lesson.module.title.trim().toLowerCase() : '';
+          return title === 'playbooks';
+        });
+        setCoreLessons(playbookLessons);
         setBitesizeLessons(Array.isArray(bitesizePayload.lessons) ? bitesizePayload.lessons : []);
         setStoriesLessons(Array.isArray(storiesPayload.lessons) ? storiesPayload.lessons : []);
       } catch (err) {
@@ -211,7 +215,7 @@ export default function CurrentProgressPage() {
           <header className="space-y-2">
             <h1 className="pt-[45px] text-left text-3xl font-semibold text-primary">Current Progress</h1>
             <p className="text-base text-textdark/80">
-              Track how you are moving through the how-to guides, bitesize webinars and standout stories.
+              Track how you are moving through the playbooks, bitesize webinars and standout stories.
             </p>
           </header>
 
@@ -225,18 +229,15 @@ export default function CurrentProgressPage() {
             <div className="grid gap-6 lg:grid-cols-3">
               <section className="flex flex-col gap-4 rounded-md bg-white p-6 transition-shadow hover:shadow-md">
                 <div>
-                  <h2 className="text-2xl font-semibold text-primary">How-to Guides</h2>
+                  <h2 className="text-2xl font-semibold text-primary">Playbooks</h2>
                 </div>
 
                 <div className="flex flex-col gap-5">
                   {groupedCore.length === 0 ? (
-                    <p className="text-sm text-textdark/60">No how-to guides available yet.</p>
+                    <p className="text-sm text-textdark/60">No playbooks available yet.</p>
                   ) : (
                     groupedCore.map((module) => (
                       <div key={module.title} className="space-y-1.5">
-                        <h3 className="py-[15px] text-base font-semibold text-primary">
-                          {module.title}
-                        </h3>
                         <div className="space-y-1.5">
                           {module.lessons.map((lesson) => renderLessonItem(lesson))}
                         </div>
