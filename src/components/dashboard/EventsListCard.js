@@ -1,30 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 export default function EventsListCard({ events = [], isLoading = false }) {
   const sanitizedEvents = useMemo(() => (Array.isArray(events) ? events.slice(0, 4) : []), [events]);
   const hasEvents = sanitizedEvents.length > 0;
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [requestedIndex, setRequestedIndex] = useState(0);
   const touchStartRef = useRef(null);
-
-  useEffect(() => {
-    if (!hasEvents) {
-      setActiveIndex(0);
-      return;
-    }
-    setActiveIndex((prev) => (prev >= sanitizedEvents.length ? 0 : prev));
-  }, [hasEvents, sanitizedEvents.length]);
+  const activeIndex = hasEvents ? Math.min(requestedIndex, sanitizedEvents.length - 1) : 0;
 
   const handlePrev = () => {
     if (!hasEvents) return;
-    setActiveIndex((prev) => (prev - 1 + sanitizedEvents.length) % sanitizedEvents.length);
+    setRequestedIndex((prev) => (prev - 1 + sanitizedEvents.length) % sanitizedEvents.length);
   };
 
   const handleNext = () => {
     if (!hasEvents) return;
-    setActiveIndex((prev) => (prev + 1) % sanitizedEvents.length);
+    setRequestedIndex((prev) => (prev + 1) % sanitizedEvents.length);
   };
 
   const handleTouchStart = (event) => {
