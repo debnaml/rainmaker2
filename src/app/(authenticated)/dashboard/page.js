@@ -31,7 +31,7 @@ const WORKSHOP_SPOTLIGHT = {
     { label: 'Duration', value: 'Half day' },
     { label: 'Format', value: 'In-person workshop' },
   ],
-  sessionDates: ['23 Feb', '24 Feb', '3 Mar'],
+  sessionDates: ['23 Feb', '24 Feb', '2 Mar', '3 Mar'],
   ctaLabel: 'Book now',
   ctaHref: 'https://birketts.kallidus-suite.com/learn/#/course/bfd0c2e4-5af6-4ada-89ee-e41eec259300',
   backgroundImage: '/images/deborah-hall-workshop.jpg',
