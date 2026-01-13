@@ -19,7 +19,8 @@ const SUB_NAV_ITEMS = [
 const ROLE_PARAM_FALLBACK = 'normal';
 const LIVE_EVENT_KEYWORDS = ['live webinar', 'f2f', 'workshop', 'teams workshop'];
 const SHOW_PROGRESS_STRIP = false;
-const LAUNCH_DAY_DECK_PATH = '/launch-day-deck.pdf';
+const LAUNCH_DAY_DECK_PATH =
+  'https://birkettslicensing.sharepoint.com/:p:/r/sites/Department_BDAndMarketing/Shared%20Documents/General/Rainmaker/Rainmaker%20December%202025.pptx?d=we42d5bea97cc4292b3bfd2fee8049c5d&csf=1&web=1&e=Nm4akA';
 const WORKSHOP_IMAGE_FALLBACK = '/images/rm-bg.jpg';
 
 const WORKSHOP_SPOTLIGHT = {
