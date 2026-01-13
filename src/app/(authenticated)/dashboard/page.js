@@ -400,7 +400,24 @@ export default function DashboardPage() {
             </div>
           </section>
           <section className="mt-8 flex flex-col gap-4">
-            <h2 className="text-xl font-semibold text-primary">Featured</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold text-primary">Featured</h2>
+              <a
+                href="/stories"
+                className="group inline-flex items-center gap-1 text-sm font-semibold text-primary transition hover:text-secondary"
+              >
+                <span>More Standout Stories</span>
+                <svg
+                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
+            </div>
             <NewestLessonsCard lessons={recentLessons} isLoading={progressLoading} />
           </section>
           
