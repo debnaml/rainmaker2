@@ -29,13 +29,20 @@ const footerLinks = [
 ];
 
 const bottomLinks = [
-  { label: 'Terms of Use', href: '#' },
-  { label: 'Privacy Policy', href: '#' },
-  { label: 'Cookies Policy', href: '#' },
-  { label: 'Contact Us', href: '#' },
+  {
+    label: 'Privacy Policy',
+    href: 'https://www.birketts.co.uk/compliance/privacy-notice/',
+    external: true,
+  },
+  {
+    label: 'Cookies Policy',
+    href: '/cookie-policy',
+  },
 ];
 
 export default function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer className="mt-16 w-full text-textdark">
       <div className="bg-mint/50">
@@ -75,13 +82,29 @@ export default function Footer() {
       </div>
       <div className="bg-primary">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 text-white sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-sm">© Birketts LLP 2025</span>
+          <span className="text-sm">© Birketts LLP {currentYear}</span>
           <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            {bottomLinks.map(({ label, href }) => (
-              <Link key={label} href={href} className="transition hover:text-mint">
-                {label}
-              </Link>
-            ))}
+            {bottomLinks.map(({ label, href, external }) => {
+              if (external) {
+                return (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition hover:text-mint"
+                  >
+                    {label}
+                  </a>
+                );
+              }
+
+              return (
+                <Link key={label} href={href} className="transition hover:text-mint">
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </div>
